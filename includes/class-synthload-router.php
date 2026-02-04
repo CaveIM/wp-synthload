@@ -190,10 +190,83 @@ class SynthLoad_Router {
     }
 
     /**
+     * Disable all forms of caching for the current request.
+     *
+     * This method attempts to bypass caching at multiple levels:
+     * - WordPress page caching plugins (DONOTCACHEPAGE constant)
+     * - LiteSpeed Cache
+     * - Nginx fastcgi_cache
+     * - Varnish/proxy caches
+     * - CDN caching (Cloudflare, etc.)
+     */
+    private function disable_caching(): void {
+        // WordPress caching plugins check this constant
+        if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+            define( 'DONOTCACHEPAGE', true );
+        }
+
+        // WP Super Cache
+        if ( ! defined( 'DONOTCACHEDB' ) ) {
+            define( 'DONOTCACHEDB', true );
+        }
+
+        // Disable object caching for this request
+        if ( ! defined( 'DONOTCACHEOBJECT' ) ) {
+            define( 'DONOTCACHEOBJECT', true );
+        }
+
+        // Batcache (WordPress.com VIP, Automattic)
+        if ( function_exists( 'batcache_cancel' ) ) {
+            batcache_cancel();
+        }
+
+        // WP Rocket
+        if ( function_exists( 'rocket_clean_domain' ) ) {
+            add_filter( 'do_rocket_generate_caching_files', '__return_false' );
+        }
+
+        // Disable WordPress HTTP cache
+        add_filter( 'wp_headers', function( $headers ) {
+            unset( $headers['ETag'] );
+            unset( $headers['Last-Modified'] );
+            return $headers;
+        }, 9999 );
+
+        // Send headers immediately to prevent caching
+        if ( ! headers_sent() ) {
+            // Standard cache prevention
+            header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0, private' );
+            header( 'Pragma: no-cache' );
+            header( 'Expires: Wed, 11 Jan 1984 05:00:00 GMT' );
+
+            // LiteSpeed
+            header( 'X-LiteSpeed-Cache-Control: no-cache' );
+
+            // Cloudflare
+            header( 'CF-Cache-Status: DYNAMIC' );
+
+            // Nginx
+            header( 'X-Accel-Expires: 0' );
+
+            // Varnish
+            header( 'X-Varnish-TTL: 0' );
+
+            // Generic cache bypass
+            header( 'Surrogate-Control: no-store' );
+
+            // Vary header to prevent CDN caching
+            header( 'Vary: *' );
+        }
+    }
+
+    /**
      * Dispatch to workload handler.
      */
     private function dispatch_workload(): void {
         global $wpdb;
+
+        // Disable all caching before workload execution
+        $this->disable_caching();
 
         // Get settings
         $settings = SynthLoad_Settings::get_all();
