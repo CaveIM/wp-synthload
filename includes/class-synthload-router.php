@@ -248,9 +248,12 @@ class SynthLoad_Router {
 
         // Required headers
         header( 'Content-Type: text/plain; charset=utf-8' );
-        header( 'Cache-Control: no-store, no-cache, must-revalidate' );
+        header( 'Cache-Control: no-store, no-cache, must-revalidate, private' );
         header( 'Pragma: no-cache' );
         header( 'Expires: 0' );
+
+        // Bypass LiteSpeed cache
+        header( 'X-LiteSpeed-Cache-Control: no-cache' );
 
         // Informational headers
         if ( defined( 'SYNTHLOAD_VERSION' ) ) {
@@ -275,9 +278,12 @@ class SynthLoad_Router {
         http_response_code( $status_code );
 
         header( 'Content-Type: application/json; charset=utf-8' );
-        header( 'Cache-Control: no-store, no-cache, must-revalidate' );
+        header( 'Cache-Control: no-store, no-cache, must-revalidate, private' );
         header( 'Pragma: no-cache' );
         header( 'Expires: 0' );
+
+        // Bypass LiteSpeed cache
+        header( 'X-LiteSpeed-Cache-Control: no-cache' );
 
         if ( defined( 'SYNTHLOAD_VERSION' ) ) {
             header( 'X-SynthLoad-Version: ' . SYNTHLOAD_VERSION );
