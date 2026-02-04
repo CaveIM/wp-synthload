@@ -43,7 +43,7 @@ $limits = SynthLoad_Settings::get_hard_limits();
                         <?php if ( ! empty( $settings['loaderio_token'] ) ) : ?>
                             <p class="synthload-url-preview">
                                 <strong><?php esc_html_e( 'Verification URL:', 'wp-synthload' ); ?></strong><br>
-                                <?php echo esc_url( home_url( '/loaderio-' . $settings['loaderio_token'] . '.txt' ) ); ?>
+                                <?php echo esc_url( home_url( '/loaderio-' . SynthLoad_Settings::extract_token_id( $settings['loaderio_token'] ) . '.txt' ) ); ?>
                             </p>
                         <?php endif; ?>
                     </td>
