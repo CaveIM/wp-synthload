@@ -193,6 +193,7 @@ class SynthLoad_Router {
      * Disable all forms of caching for the current request.
      *
      * This method attempts to bypass caching at multiple levels:
+     * - PHP session (most caches skip session requests)
      * - WordPress page caching plugins (DONOTCACHEPAGE constant)
      * - LiteSpeed Cache
      * - Nginx fastcgi_cache
@@ -200,6 +201,14 @@ class SynthLoad_Router {
      * - CDN caching (Cloudflare, etc.)
      */
     private function disable_caching(): void {
+        // Start a PHP session - this simulates logged-in membership user behavior
+        // and causes most caches to bypass (they skip requests with session cookies)
+        if ( session_status() === PHP_SESSION_NONE && ! headers_sent() ) {
+            // Use a non-blocking session to avoid lock contention under load
+            session_cache_limiter( 'nocache' );
+            session_start( array( 'read_and_close' => true ) );
+        }
+
         // WordPress caching plugins check this constant
         if ( ! defined( 'DONOTCACHEPAGE' ) ) {
             define( 'DONOTCACHEPAGE', true );
