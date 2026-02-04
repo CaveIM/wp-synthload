@@ -71,6 +71,9 @@ class SynthLoad_Activator {
      * Run on plugin deactivation.
      */
     public static function deactivate(): void {
+        // Delete the Loader.io verification file
+        self::delete_loaderio_verification_file();
+
         // Flush rewrite rules to remove our rules
         flush_rewrite_rules();
 
@@ -79,6 +82,25 @@ class SynthLoad_Activator {
 
         // Note: We intentionally do NOT delete options or table on deactivation
         // This preserves data for reactivation
+    }
+
+    /**
+     * Delete the Loader.io verification file if it exists.
+     */
+    public static function delete_loaderio_verification_file(): void {
+        $settings = SynthLoad_Settings::get_all();
+        $token_id = SynthLoad_Settings::extract_token_id( $settings['loaderio_token'] );
+
+        if ( empty( $token_id ) ) {
+            return;
+        }
+
+        $filepath = ABSPATH . 'loaderio-' . $token_id . '.txt';
+
+        if ( file_exists( $filepath ) ) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+            unlink( $filepath );
+        }
     }
 
     /**

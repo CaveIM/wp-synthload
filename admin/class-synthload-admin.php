@@ -74,9 +74,10 @@ class SynthLoad_Admin {
             return;
         }
 
-        // Get the old slug for comparison
-        $old_settings = SynthLoad_Settings::get_all();
-        $old_slug     = $old_settings['endpoint_slug'];
+        // Get the old settings for comparison
+        $old_settings    = SynthLoad_Settings::get_all();
+        $old_slug        = $old_settings['endpoint_slug'];
+        $old_token_id    = SynthLoad_Settings::extract_token_id( $old_settings['loaderio_token'] );
 
         // Collect form data
         $new_settings = array(
@@ -106,10 +107,28 @@ class SynthLoad_Admin {
                 flush_rewrite_rules();
             }
 
+            // Handle Loader.io verification file
+            $new_token_id  = SynthLoad_Settings::extract_token_id( $current_settings['loaderio_token'] );
+            $file_message  = '';
+
+            // Delete old file if token changed
+            if ( $old_token_id !== $new_token_id && ! empty( $old_token_id ) ) {
+                self::delete_loaderio_file( $old_token_id );
+            }
+
+            // Write new file if token exists
+            if ( ! empty( $new_token_id ) ) {
+                if ( self::write_loaderio_file( $new_token_id ) ) {
+                    $file_message = ' ' . __( 'Verification file created.', 'wp-synthload' );
+                } else {
+                    $file_message = ' ' . __( 'Warning: Could not create verification file. Check file permissions.', 'wp-synthload' );
+                }
+            }
+
             add_settings_error(
                 'synthload_settings',
                 'settings_updated',
-                __( 'Settings saved successfully.', 'wp-synthload' ),
+                __( 'Settings saved successfully.', 'wp-synthload' ) . $file_message,
                 'success'
             );
         } else {
@@ -237,5 +256,75 @@ class SynthLoad_Admin {
                 'sanitize_callback' => array( 'SynthLoad_Settings', 'sanitize' ),
             )
         );
+    }
+
+    /**
+     * Write the Loader.io verification file to the web root.
+     *
+     * @param string $token_id The token ID (without loaderio- prefix).
+     * @return bool True on success, false on failure.
+     */
+    public static function write_loaderio_file( string $token_id ): bool {
+        if ( empty( $token_id ) ) {
+            return false;
+        }
+
+        $filename = 'loaderio-' . $token_id . '.txt';
+        $filepath = ABSPATH . $filename;
+        $content  = 'loaderio-' . $token_id;
+
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+        $result = file_put_contents( $filepath, $content );
+
+        return false !== $result;
+    }
+
+    /**
+     * Delete a Loader.io verification file from the web root.
+     *
+     * @param string $token_id The token ID (without loaderio- prefix).
+     * @return bool True on success or file didn't exist, false on failure.
+     */
+    public static function delete_loaderio_file( string $token_id ): bool {
+        if ( empty( $token_id ) ) {
+            return true;
+        }
+
+        $filename = 'loaderio-' . $token_id . '.txt';
+        $filepath = ABSPATH . $filename;
+
+        if ( ! file_exists( $filepath ) ) {
+            return true;
+        }
+
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+        return unlink( $filepath );
+    }
+
+    /**
+     * Check if the Loader.io verification file exists.
+     *
+     * @param string $token_id The token ID (without loaderio- prefix).
+     * @return bool True if file exists, false otherwise.
+     */
+    public static function loaderio_file_exists( string $token_id ): bool {
+        if ( empty( $token_id ) ) {
+            return false;
+        }
+
+        $filename = 'loaderio-' . $token_id . '.txt';
+        $filepath = ABSPATH . $filename;
+
+        return file_exists( $filepath );
+    }
+
+    /**
+     * Get the path to the Loader.io verification file.
+     *
+     * @param string $token_id The token ID (without loaderio- prefix).
+     * @return string The full file path.
+     */
+    public static function get_loaderio_filepath( string $token_id ): string {
+        return ABSPATH . 'loaderio-' . $token_id . '.txt';
     }
 }

@@ -40,10 +40,22 @@ $limits = SynthLoad_Settings::get_hard_limits();
                         <p class="description">
                             <?php esc_html_e( 'Enter the alphanumeric token from Loader.io (without the "loaderio-" prefix).', 'wp-synthload' ); ?>
                         </p>
-                        <?php if ( ! empty( $settings['loaderio_token'] ) ) : ?>
+                        <?php if ( ! empty( $settings['loaderio_token'] ) ) :
+                            $token_id    = SynthLoad_Settings::extract_token_id( $settings['loaderio_token'] );
+                            $file_exists = SynthLoad_Admin::loaderio_file_exists( $token_id );
+                        ?>
                             <p class="synthload-url-preview">
                                 <strong><?php esc_html_e( 'Verification URL:', 'wp-synthload' ); ?></strong><br>
-                                <?php echo esc_url( home_url( '/loaderio-' . SynthLoad_Settings::extract_token_id( $settings['loaderio_token'] ) . '.txt' ) ); ?>
+                                <?php echo esc_url( home_url( '/loaderio-' . $token_id . '.txt' ) ); ?>
+                            </p>
+                            <p class="synthload-file-status" style="margin-top: 8px;">
+                                <?php if ( $file_exists ) : ?>
+                                    <span style="color: #00a32a;">&#10003;</span>
+                                    <?php esc_html_e( 'Verification file exists and is ready.', 'wp-synthload' ); ?>
+                                <?php else : ?>
+                                    <span style="color: #d63638;">&#10007;</span>
+                                    <?php esc_html_e( 'Verification file not found. Save settings to create it.', 'wp-synthload' ); ?>
+                                <?php endif; ?>
                             </p>
                         <?php endif; ?>
                     </td>

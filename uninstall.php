@@ -13,6 +13,23 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
     exit;
 }
 
+// Delete Loader.io verification file before removing settings
+$settings = get_option( 'synthload_settings', array() );
+if ( ! empty( $settings['loaderio_token'] ) ) {
+    $token = $settings['loaderio_token'];
+    // Strip loaderio- prefix if present
+    if ( strpos( strtolower( $token ), 'loaderio-' ) === 0 ) {
+        $token = substr( $token, 9 );
+    } elseif ( strpos( strtolower( $token ), 'loaderio' ) === 0 ) {
+        $token = substr( $token, 8 );
+    }
+    $filepath = ABSPATH . 'loaderio-' . $token . '.txt';
+    if ( file_exists( $filepath ) ) {
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+        unlink( $filepath );
+    }
+}
+
 // Delete plugin options
 delete_option( 'synthload_settings' );
 delete_option( 'synthload_schema_version' );
