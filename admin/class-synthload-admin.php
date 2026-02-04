@@ -1,0 +1,241 @@
+<?php
+/**
+ * Admin settings page controller for WP Synthetic Load plugin.
+ *
+ * @package WP_SynthLoad
+ */
+
+// Security check - prevent direct access
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+/**
+ * Class SynthLoad_Admin
+ *
+ * Handles admin UI, settings page, and form processing.
+ */
+class SynthLoad_Admin {
+
+    /**
+     * Settings page hook suffix.
+     *
+     * @var string
+     */
+    private string $settings_page_hook = '';
+
+    /**
+     * Add menu page under Settings.
+     */
+    public function add_menu_page(): void {
+        $this->settings_page_hook = add_options_page(
+            __( 'Synthetic Load Settings', 'wp-synthload' ),
+            __( 'Synthetic Load', 'wp-synthload' ),
+            'manage_options',
+            'synthload-settings',
+            array( $this, 'render_settings_page' )
+        );
+    }
+
+    /**
+     * Render the settings page.
+     */
+    public function render_settings_page(): void {
+        // Check permissions
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'wp-synthload' ) );
+        }
+
+        // Handle form submission
+        if ( isset( $_POST['synthload_save_settings'] ) ) {
+            $this->handle_form_submit();
+        }
+
+        // Get current settings
+        $settings = SynthLoad_Settings::get_all();
+
+        // Include the view
+        include SYNTHLOAD_PLUGIN_DIR . 'admin/views/settings-page.php';
+    }
+
+    /**
+     * Handle form submission.
+     */
+    public function handle_form_submit(): void {
+        // Verify nonce
+        if ( ! isset( $_POST['synthload_nonce'] ) ||
+             ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['synthload_nonce'] ) ), 'synthload_save_settings' ) ) {
+            add_settings_error(
+                'synthload_settings',
+                'invalid_nonce',
+                __( 'Security check failed. Please try again.', 'wp-synthload' ),
+                'error'
+            );
+            return;
+        }
+
+        // Get the old slug for comparison
+        $old_settings = SynthLoad_Settings::get_all();
+        $old_slug     = $old_settings['endpoint_slug'];
+
+        // Collect form data
+        $new_settings = array(
+            'loaderio_token'        => isset( $_POST['loaderio_token'] ) ? sanitize_text_field( wp_unslash( $_POST['loaderio_token'] ) ) : '',
+            'endpoint_slug'         => isset( $_POST['endpoint_slug'] ) ? sanitize_text_field( wp_unslash( $_POST['endpoint_slug'] ) ) : 'synthload',
+            'endpoint_enabled'      => isset( $_POST['endpoint_enabled'] ) ? true : false,
+            'access_token'          => isset( $_POST['access_token'] ) ? sanitize_text_field( wp_unslash( $_POST['access_token'] ) ) : '',
+            'profile'               => isset( $_POST['profile'] ) ? sanitize_text_field( wp_unslash( $_POST['profile'] ) ) : 'general',
+            'read_query_count'      => isset( $_POST['read_query_count'] ) ? (int) $_POST['read_query_count'] : 100,
+            'write_op_count'        => isset( $_POST['write_op_count'] ) ? (int) $_POST['write_op_count'] : 5,
+            'target_duration_ms'    => isset( $_POST['target_duration_ms'] ) ? (int) $_POST['target_duration_ms'] : 3000,
+            'duration_jitter_ms'    => isset( $_POST['duration_jitter_ms'] ) ? (int) $_POST['duration_jitter_ms'] : 750,
+            'use_object_cache'      => isset( $_POST['use_object_cache'] ) ? true : false,
+            'bypass_object_cache'   => isset( $_POST['bypass_object_cache'] ) ? true : false,
+            'randomize_workload'    => isset( $_POST['randomize_workload'] ) ? true : false,
+            'debug_logging_enabled' => isset( $_POST['debug_logging_enabled'] ) ? true : false,
+        );
+
+        // Update settings
+        $updated = SynthLoad_Settings::update( $new_settings );
+
+        if ( $updated ) {
+            // Check if slug changed - flush rewrite rules if so
+            $current_settings = SynthLoad_Settings::get_all();
+            if ( $old_slug !== $current_settings['endpoint_slug'] ) {
+                SynthLoad_Router::register_rewrites();
+                flush_rewrite_rules();
+            }
+
+            add_settings_error(
+                'synthload_settings',
+                'settings_updated',
+                __( 'Settings saved successfully.', 'wp-synthload' ),
+                'success'
+            );
+        } else {
+            add_settings_error(
+                'synthload_settings',
+                'settings_error',
+                __( 'Failed to save settings. Please try again.', 'wp-synthload' ),
+                'error'
+            );
+        }
+    }
+
+    /**
+     * Enqueue admin assets.
+     *
+     * @param string $hook Current admin page hook.
+     */
+    public function enqueue_assets( string $hook ): void {
+        if ( $hook !== $this->settings_page_hook ) {
+            return;
+        }
+
+        // Inline CSS for styling
+        $css = '
+            .synthload-url-preview {
+                background: #f0f0f1;
+                padding: 10px;
+                border-radius: 4px;
+                font-family: monospace;
+                margin-top: 5px;
+            }
+            .synthload-section {
+                background: #fff;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }
+            .synthload-section h2 {
+                margin-top: 0;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #c3c4c7;
+            }
+            .synthload-limits-info {
+                color: #666;
+                font-size: 12px;
+            }
+        ';
+
+        wp_add_inline_style( 'common', $css );
+
+        // Profile presets JavaScript
+        $presets = array(
+            'general'    => array(
+                'read_query_count'   => 100,
+                'write_op_count'     => 5,
+                'target_duration_ms' => 3000,
+                'duration_jitter_ms' => 750,
+            ),
+            'membership' => array(
+                'read_query_count'   => 200,
+                'write_op_count'     => 15,
+                'target_duration_ms' => 4000,
+                'duration_jitter_ms' => 1000,
+            ),
+            'ecommerce'  => array(
+                'read_query_count'   => 150,
+                'write_op_count'     => 25,
+                'target_duration_ms' => 5000,
+                'duration_jitter_ms' => 1000,
+            ),
+        );
+
+        $script = "
+        (function() {
+            var synthloadPresets = " . wp_json_encode( $presets ) . ";
+
+            document.addEventListener('DOMContentLoaded', function() {
+                var loadPresetBtn = document.getElementById('synthload_load_preset');
+
+                if (loadPresetBtn) {
+                    loadPresetBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        var profileSelect = document.getElementById('synthload_profile');
+                        var profile = profileSelect ? profileSelect.value : 'general';
+                        var preset = synthloadPresets[profile];
+
+                        if (preset) {
+                            Object.keys(preset).forEach(function(key) {
+                                var input = document.getElementById('synthload_' + key);
+                                if (input) {
+                                    input.value = preset[key];
+                                }
+                            });
+                        }
+                    });
+                }
+
+                // Update URL preview when slug changes
+                var slugInput = document.getElementById('synthload_endpoint_slug');
+                var urlPreview = document.getElementById('synthload_url_preview');
+
+                if (slugInput && urlPreview) {
+                    slugInput.addEventListener('input', function() {
+                        var baseUrl = '" . esc_js( home_url( '/' ) ) . "';
+                        urlPreview.textContent = baseUrl + this.value + '/';
+                    });
+                }
+            });
+        })();
+        ";
+
+        wp_add_inline_script( 'jquery', $script );
+    }
+
+    /**
+     * Register settings with WordPress Settings API.
+     */
+    public function register_settings(): void {
+        register_setting(
+            'synthload_options_group',
+            SynthLoad_Settings::OPTION_NAME,
+            array(
+                'type'              => 'array',
+                'sanitize_callback' => array( 'SynthLoad_Settings', 'sanitize' ),
+            )
+        );
+    }
+}
