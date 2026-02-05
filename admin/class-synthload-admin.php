@@ -46,6 +46,14 @@ class SynthLoad_Admin {
             wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'wp-synthload' ) );
         }
 
+        // Retrieve settings errors from transient (set during form submission redirect)
+        $transient_errors = get_transient( 'settings_errors' );
+        if ( $transient_errors ) {
+            global $wp_settings_errors;
+            $wp_settings_errors = array_merge( (array) $wp_settings_errors, $transient_errors );
+            delete_transient( 'settings_errors' );
+        }
+
         // Get current settings
         $settings = SynthLoad_Settings::get_all();
 
