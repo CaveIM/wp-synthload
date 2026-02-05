@@ -29,6 +29,10 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
            class="nav-tab <?php echo 'export' === $current_tab ? 'nav-tab-active' : ''; ?>">
             <?php esc_html_e( 'Export / Import', 'wp-synthload' ); ?>
         </a>
+        <a href="?page=synthload-settings&tab=calculator"
+           class="nav-tab <?php echo 'calculator' === $current_tab ? 'nav-tab-active' : ''; ?>">
+            <?php esc_html_e( 'Calculator', 'wp-synthload' ); ?>
+        </a>
         <a href="?page=synthload-settings&tab=settings"
            class="nav-tab <?php echo 'settings' === $current_tab ? 'nav-tab-active' : ''; ?>">
             <?php esc_html_e( 'Settings', 'wp-synthload' ); ?>
@@ -225,6 +229,222 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                         </td>
                     </tr>
                 </table>
+            </div>
+
+        <?php elseif ( 'calculator' === $current_tab ) : ?>
+
+            <!-- vCPU Calculator Section -->
+            <div class="synthload-section">
+                <h2><?php esc_html_e( 'vCPU Capacity Calculator', 'wp-synthload' ); ?></h2>
+                <p class="description" style="margin-bottom: 20px;">
+                    <?php esc_html_e( 'Estimate server resource requirements based on your expected traffic patterns.', 'wp-synthload' ); ?>
+                </p>
+
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row">
+                            <label for="calc_monthly_visitors"><?php esc_html_e( 'Monthly Visitors', 'wp-synthload' ); ?></label>
+                        </th>
+                        <td>
+                            <input type="number"
+                                   id="calc_monthly_visitors"
+                                   value="100000"
+                                   min="0"
+                                   max="100000000"
+                                   step="1000"
+                                   class="regular-text" />
+                            <p class="description">
+                                <?php esc_html_e( 'Expected unique visitors per month.', 'wp-synthload' ); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="calc_response_time"><?php esc_html_e( 'Response Time', 'wp-synthload' ); ?></label>
+                        </th>
+                        <td>
+                            <input type="number"
+                                   id="calc_response_time"
+                                   value="500"
+                                   min="50"
+                                   max="30000"
+                                   step="50"
+                                   class="small-text" />
+                            <span class="description"><?php esc_html_e( 'milliseconds (average page load)', 'wp-synthload' ); ?></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Traffic Shape', 'wp-synthload' ); ?></th>
+                        <td>
+                            <fieldset>
+                                <label style="display: block; margin-bottom: 8px;">
+                                    <input type="radio" name="calc_traffic_shape" value="uniform" checked />
+                                    <?php esc_html_e( 'Uniform (spread evenly 24/7)', 'wp-synthload' ); ?>
+                                </label>
+                                <label style="display: block; margin-bottom: 8px;">
+                                    <input type="radio" name="calc_traffic_shape" value="business" />
+                                    <?php esc_html_e( 'Business Hours (8h workday, 22 days/month)', 'wp-synthload' ); ?>
+                                </label>
+                                <label style="display: block;">
+                                    <input type="radio" name="calc_traffic_shape" value="flash_sale" />
+                                    <?php esc_html_e( 'Flash Sale (spike traffic in 1 hour)', 'wp-synthload' ); ?>
+                                </label>
+                            </fieldset>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="calc_safety_factor"><?php esc_html_e( 'Safety Factor', 'wp-synthload' ); ?></label>
+                        </th>
+                        <td>
+                            <select id="calc_safety_factor" class="regular-text">
+                                <option value="1.0"><?php esc_html_e( 'None (1.0x)', 'wp-synthload' ); ?></option>
+                                <option value="1.5" selected><?php esc_html_e( 'Standard (1.5x)', 'wp-synthload' ); ?></option>
+                                <option value="2.0"><?php esc_html_e( 'Conservative (2.0x)', 'wp-synthload' ); ?></option>
+                                <option value="3.0"><?php esc_html_e( 'High Availability (3.0x)', 'wp-synthload' ); ?></option>
+                            </select>
+                            <p class="description">
+                                <?php esc_html_e( 'Headroom multiplier for unexpected traffic spikes.', 'wp-synthload' ); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Calculator Results Section -->
+            <div class="synthload-section">
+                <h2><?php esc_html_e( 'Results', 'wp-synthload' ); ?></h2>
+
+                <div id="calc_results" class="synthload-calc-results">
+                    <div class="synthload-calc-result-box">
+                        <span class="synthload-calc-label"><?php esc_html_e( 'Peak RPS', 'wp-synthload' ); ?></span>
+                        <span id="calc_result_rps" class="synthload-calc-value">-</span>
+                        <span class="synthload-calc-unit"><?php esc_html_e( 'requests/sec', 'wp-synthload' ); ?></span>
+                    </div>
+                    <div class="synthload-calc-result-box">
+                        <span class="synthload-calc-label"><?php esc_html_e( 'Concurrent', 'wp-synthload' ); ?></span>
+                        <span id="calc_result_concurrent" class="synthload-calc-value">-</span>
+                        <span class="synthload-calc-unit"><?php esc_html_e( 'connections', 'wp-synthload' ); ?></span>
+                    </div>
+                    <div class="synthload-calc-result-box synthload-calc-result-primary">
+                        <span class="synthload-calc-label"><?php esc_html_e( 'Recommended', 'wp-synthload' ); ?></span>
+                        <span id="calc_result_vcpus" class="synthload-calc-value">-</span>
+                        <span class="synthload-calc-unit"><?php esc_html_e( 'vCPU(s)', 'wp-synthload' ); ?></span>
+                    </div>
+                </div>
+
+                <div id="calc_breakdown" class="synthload-calc-breakdown" style="margin-top: 20px;">
+                    <!-- Breakdown populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Advanced Assumptions Section -->
+            <div class="synthload-section">
+                <h2>
+                    <label for="calc_advanced_toggle" style="cursor: pointer;">
+                        <input type="checkbox" id="calc_advanced_toggle" style="margin-right: 8px;" />
+                        <?php esc_html_e( 'Advanced Assumptions', 'wp-synthload' ); ?>
+                    </label>
+                </h2>
+
+                <div id="calc_advanced_settings" style="display: none;">
+                    <p class="description" style="margin-bottom: 15px;">
+                        <?php esc_html_e( 'Customize the calculation assumptions. These values are saved when you click Save Settings.', 'wp-synthload' ); ?>
+                    </p>
+
+                    <table class="form-table" role="presentation">
+                        <tr>
+                            <th scope="row">
+                                <label for="calc_pages_per_visit"><?php esc_html_e( 'Pages per Visit', 'wp-synthload' ); ?></label>
+                            </th>
+                            <td>
+                                <input type="number"
+                                       id="calc_pages_per_visit"
+                                       name="calc_pages_per_visit"
+                                       value="<?php echo esc_attr( $settings['calc_pages_per_visit'] ); ?>"
+                                       min="1"
+                                       max="20"
+                                       step="1"
+                                       class="small-text" />
+                                <p class="description">
+                                    <?php esc_html_e( 'Average pages viewed per visitor session.', 'wp-synthload' ); ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="calc_cache_hit_rate"><?php esc_html_e( 'Cache Hit Rate', 'wp-synthload' ); ?></label>
+                            </th>
+                            <td>
+                                <input type="number"
+                                       id="calc_cache_hit_rate"
+                                       name="calc_cache_hit_rate"
+                                       value="<?php echo esc_attr( $settings['calc_cache_hit_rate'] ); ?>"
+                                       min="0"
+                                       max="99"
+                                       step="1"
+                                       class="small-text" /> %
+                                <p class="description">
+                                    <?php esc_html_e( 'Percentage of requests served from page cache (reduces server load).', 'wp-synthload' ); ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="calc_connections_per_vcpu"><?php esc_html_e( 'Connections per vCPU', 'wp-synthload' ); ?></label>
+                            </th>
+                            <td>
+                                <input type="number"
+                                       id="calc_connections_per_vcpu"
+                                       name="calc_connections_per_vcpu"
+                                       value="<?php echo esc_attr( $settings['calc_connections_per_vcpu'] ); ?>"
+                                       min="5"
+                                       max="200"
+                                       step="1"
+                                       class="small-text" />
+                                <p class="description">
+                                    <?php esc_html_e( 'Concurrent connections a single vCPU can handle. Higher for optimized hosting.', 'wp-synthload' ); ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="calc_peak_to_average_ratio"><?php esc_html_e( 'Peak-to-Average Ratio', 'wp-synthload' ); ?></label>
+                            </th>
+                            <td>
+                                <input type="number"
+                                       id="calc_peak_to_average_ratio"
+                                       name="calc_peak_to_average_ratio"
+                                       value="<?php echo esc_attr( $settings['calc_peak_to_average_ratio'] ); ?>"
+                                       min="1.0"
+                                       max="10.0"
+                                       step="0.1"
+                                       class="small-text" />
+                                <p class="description">
+                                    <?php esc_html_e( 'Multiplier for business hours traffic peaks vs. average.', 'wp-synthload' ); ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="calc_flash_spike_percent"><?php esc_html_e( 'Flash Spike Percentage', 'wp-synthload' ); ?></label>
+                            </th>
+                            <td>
+                                <input type="number"
+                                       id="calc_flash_spike_percent"
+                                       name="calc_flash_spike_percent"
+                                       value="<?php echo esc_attr( $settings['calc_flash_spike_percent'] ); ?>"
+                                       min="1"
+                                       max="50"
+                                       step="1"
+                                       class="small-text" /> %
+                                <p class="description">
+                                    <?php esc_html_e( 'Percentage of monthly traffic occurring during a flash sale spike hour.', 'wp-synthload' ); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
             </div>
 
         <?php else : ?>

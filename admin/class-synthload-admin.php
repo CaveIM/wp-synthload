@@ -165,6 +165,25 @@ class SynthLoad_Admin {
             $new_settings['bypass_object_cache'] = isset( $_POST['bypass_object_cache'] );
         }
 
+        // Calculator assumptions (from calculator tab).
+        if ( 'calculator' === $current_tab ) {
+            if ( isset( $_POST['calc_pages_per_visit'] ) ) {
+                $new_settings['calc_pages_per_visit'] = (int) $_POST['calc_pages_per_visit'];
+            }
+            if ( isset( $_POST['calc_cache_hit_rate'] ) ) {
+                $new_settings['calc_cache_hit_rate'] = (int) $_POST['calc_cache_hit_rate'];
+            }
+            if ( isset( $_POST['calc_connections_per_vcpu'] ) ) {
+                $new_settings['calc_connections_per_vcpu'] = (int) $_POST['calc_connections_per_vcpu'];
+            }
+            if ( isset( $_POST['calc_peak_to_average_ratio'] ) ) {
+                $new_settings['calc_peak_to_average_ratio'] = (float) $_POST['calc_peak_to_average_ratio'];
+            }
+            if ( isset( $_POST['calc_flash_spike_percent'] ) ) {
+                $new_settings['calc_flash_spike_percent'] = (int) $_POST['calc_flash_spike_percent'];
+            }
+        }
+
         // Update settings (returns false if no changes or error)
         SynthLoad_Settings::update( $new_settings );
 
@@ -259,6 +278,71 @@ class SynthLoad_Admin {
             #synthload_test_results td:last-child {
                 font-family: monospace;
                 text-align: right;
+            }
+            /* Calculator styles */
+            .synthload-calc-results {
+                display: flex;
+                gap: 20px;
+                flex-wrap: wrap;
+            }
+            .synthload-calc-result-box {
+                background: #f0f0f1;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                padding: 20px;
+                text-align: center;
+                min-width: 140px;
+                flex: 1;
+            }
+            .synthload-calc-result-primary {
+                background: #dff0d8;
+                border-color: #3c763d;
+            }
+            .synthload-calc-label {
+                display: block;
+                font-size: 12px;
+                color: #646970;
+                margin-bottom: 8px;
+                text-transform: uppercase;
+            }
+            .synthload-calc-value {
+                display: block;
+                font-size: 32px;
+                font-weight: 600;
+                color: #1d2327;
+                line-height: 1.2;
+            }
+            .synthload-calc-result-primary .synthload-calc-value {
+                color: #3c763d;
+            }
+            .synthload-calc-unit {
+                display: block;
+                font-size: 12px;
+                color: #646970;
+                margin-top: 4px;
+            }
+            .synthload-calc-breakdown {
+                background: #f9f9f9;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 15px 20px;
+                font-size: 13px;
+                line-height: 1.8;
+            }
+            .synthload-calc-breakdown p {
+                margin: 0 0 12px 0;
+            }
+            .synthload-calc-breakdown p:last-child {
+                margin-bottom: 0;
+            }
+            .synthload-calc-breakdown strong {
+                color: #1d2327;
+            }
+            .synthload-calc-breakdown code {
+                background: #fff;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 12px;
             }
         ';
 
@@ -449,6 +533,154 @@ class SynthLoad_Admin {
                         }
                     });
                 });
+
+                // === vCPU Calculator ===
+                var calcDefaults = {
+                    pagesPerVisit: " . (int) $settings['calc_pages_per_visit'] . ",
+                    cacheHitRate: " . (int) $settings['calc_cache_hit_rate'] . ",
+                    connectionsPerVcpu: " . (int) $settings['calc_connections_per_vcpu'] . ",
+                    peakToAverageRatio: " . (float) $settings['calc_peak_to_average_ratio'] . ",
+                    flashSpikePercent: " . (int) $settings['calc_flash_spike_percent'] . "
+                };
+
+                function calculateCapacity() {
+                    var visitors = parseInt($('#calc_monthly_visitors').val(), 10) || 0;
+                    var responseTime = parseInt($('#calc_response_time').val(), 10) || 500;
+                    var trafficShape = $('input[name=\"calc_traffic_shape\"]:checked').val() || 'uniform';
+                    var safetyFactor = parseFloat($('#calc_safety_factor').val()) || 1.5;
+
+                    // Get assumptions (use form values if advanced is open, otherwise defaults)
+                    var assumptions = getAssumptions();
+
+                    // Step 1: Page views
+                    var pageViews = visitors * assumptions.pagesPerVisit;
+
+                    // Step 2: Effective requests (after cache)
+                    var cacheRate = assumptions.cacheHitRate / 100;
+                    var effectiveRequests = pageViews * (1 - cacheRate);
+
+                    // Step 3: Peak RPS based on traffic shape
+                    var peakRps = calculatePeakRps(effectiveRequests, trafficShape, assumptions);
+
+                    // Step 4: Concurrent connections (Little's Law)
+                    var concurrent = peakRps * (responseTime / 1000);
+
+                    // Step 5: vCPUs needed
+                    var rawVcpus = concurrent / assumptions.connectionsPerVcpu;
+                    var vcpus = Math.max(1, Math.ceil(rawVcpus * safetyFactor));
+
+                    // Update display
+                    $('#calc_result_rps').text(peakRps.toFixed(2));
+                    $('#calc_result_concurrent').text(concurrent.toFixed(1));
+                    $('#calc_result_vcpus').text(vcpus);
+
+                    // Update breakdown
+                    updateBreakdown(visitors, pageViews, effectiveRequests,
+                                    peakRps, concurrent, vcpus,
+                                    trafficShape, safetyFactor, assumptions, responseTime);
+                }
+
+                function calculatePeakRps(effectiveRequests, shape, assumptions) {
+                    var secondsPerMonth;
+
+                    switch(shape) {
+                        case 'business':
+                            secondsPerMonth = 8 * 22 * 3600;
+                            return (effectiveRequests / secondsPerMonth) * assumptions.peakToAverageRatio;
+
+                        case 'flash_sale':
+                            var spikePercent = assumptions.flashSpikePercent / 100;
+                            var spikeRequests = effectiveRequests * spikePercent;
+                            return spikeRequests / 3600;
+
+                        case 'uniform':
+                        default:
+                            secondsPerMonth = 30 * 24 * 3600;
+                            return effectiveRequests / secondsPerMonth;
+                    }
+                }
+
+                function getAssumptions() {
+                    if ($('#calc_advanced_toggle').is(':checked')) {
+                        return {
+                            pagesPerVisit: parseInt($('#calc_pages_per_visit').val(), 10) || calcDefaults.pagesPerVisit,
+                            cacheHitRate: parseInt($('#calc_cache_hit_rate').val(), 10) || calcDefaults.cacheHitRate,
+                            connectionsPerVcpu: parseInt($('#calc_connections_per_vcpu').val(), 10) || calcDefaults.connectionsPerVcpu,
+                            peakToAverageRatio: parseFloat($('#calc_peak_to_average_ratio').val()) || calcDefaults.peakToAverageRatio,
+                            flashSpikePercent: parseInt($('#calc_flash_spike_percent').val(), 10) || calcDefaults.flashSpikePercent
+                        };
+                    }
+                    return calcDefaults;
+                }
+
+                function getShapeLabel(shape) {
+                    switch(shape) {
+                        case 'business': return 'Business Hours';
+                        case 'flash_sale': return 'Flash Sale';
+                        default: return 'Uniform';
+                    }
+                }
+
+                function getShapeFormula(shape, effective, rps, assumptions) {
+                    switch(shape) {
+                        case 'business':
+                            return Math.round(effective).toLocaleString() + ' / (8h × 22d × 3600s) × ' +
+                                   assumptions.peakToAverageRatio + ' peak ratio = ' + rps.toFixed(2) + ' RPS';
+                        case 'flash_sale':
+                            var spikePercent = assumptions.flashSpikePercent;
+                            var spikeRequests = effective * (spikePercent / 100);
+                            return Math.round(effective).toLocaleString() + ' × ' + spikePercent + '% / 3600s = ' + rps.toFixed(2) + ' RPS';
+                        default:
+                            return Math.round(effective).toLocaleString() + ' / (30d × 24h × 3600s) = ' + rps.toFixed(2) + ' RPS';
+                    }
+                }
+
+                function updateBreakdown(visitors, pageViews, effective, rps, concurrent,
+                                         vcpus, shape, safety, assumptions, responseTime) {
+                    var html = '';
+
+                    html += '<p><strong>Step 1: Monthly page views</strong><br>';
+                    html += '<code>' + visitors.toLocaleString() + ' visitors × ' + assumptions.pagesPerVisit;
+                    html += ' pages/visit = ' + pageViews.toLocaleString() + ' page views</code></p>';
+
+                    html += '<p><strong>Step 2: Effective requests (after ' +
+                            assumptions.cacheHitRate + '% cache)</strong><br>';
+                    html += '<code>' + pageViews.toLocaleString() + ' × ' + ((100 - assumptions.cacheHitRate) / 100).toFixed(2);
+                    html += ' = ' + Math.round(effective).toLocaleString() + ' requests hitting server</code></p>';
+
+                    html += '<p><strong>Step 3: Peak RPS (' + getShapeLabel(shape) + ')</strong><br>';
+                    html += '<code>' + getShapeFormula(shape, effective, rps, assumptions) + '</code></p>';
+
+                    html += '<p><strong>Step 4: Concurrent connections (Little\\'s Law)</strong><br>';
+                    html += '<code>' + rps.toFixed(2) + ' RPS × ' + (responseTime/1000).toFixed(2) + 's';
+                    html += ' = ' + concurrent.toFixed(1) + ' connections</code></p>';
+
+                    html += '<p><strong>Step 5: vCPUs (' + assumptions.connectionsPerVcpu +
+                            ' connections/vCPU)</strong><br>';
+                    html += '<code>' + concurrent.toFixed(1) + ' / ' + assumptions.connectionsPerVcpu;
+                    html += ' × ' + safety.toFixed(1) + ' safety = ' + vcpus + ' vCPU(s)</code></p>';
+
+                    $('#calc_breakdown').html(html);
+                }
+
+                // Bind calculator events
+                $('#calc_monthly_visitors, #calc_response_time, #calc_safety_factor').on('input change', calculateCapacity);
+                $('input[name=\"calc_traffic_shape\"]').on('change', calculateCapacity);
+
+                // Advanced settings toggle
+                $('#calc_advanced_toggle').on('change', function() {
+                    $('#calc_advanced_settings').toggle(this.checked);
+                    calculateCapacity();
+                });
+
+                // Advanced settings inputs
+                $('#calc_pages_per_visit, #calc_cache_hit_rate, #calc_connections_per_vcpu, ' +
+                  '#calc_peak_to_average_ratio, #calc_flash_spike_percent').on('input change', calculateCapacity);
+
+                // Initial calculation
+                if ($('#calc_monthly_visitors').length) {
+                    calculateCapacity();
+                }
             });
         })(jQuery);
         ";

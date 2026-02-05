@@ -28,15 +28,21 @@ class SynthLoad_Settings {
      * @var array
      */
     private static array $defaults = array(
-        'loaderio_token'        => '',
-        'endpoint_slug'         => 'synthload',
-        'endpoint_enabled'      => true,
-        'access_token'          => '',
-        'read_query_count'      => 100,
-        'write_op_count'        => 5,
-        'cpu_iterations'        => 100, // Stored in thousands (100 = 100,000 iterations)
-        'bypass_object_cache'   => false,
-        'debug_logging_enabled' => false,
+        'loaderio_token'             => '',
+        'endpoint_slug'              => 'synthload',
+        'endpoint_enabled'           => true,
+        'access_token'               => '',
+        'read_query_count'           => 100,
+        'write_op_count'             => 5,
+        'cpu_iterations'             => 100, // Stored in thousands (100 = 100,000 iterations)
+        'bypass_object_cache'        => false,
+        'debug_logging_enabled'      => false,
+        // Calculator assumptions.
+        'calc_pages_per_visit'       => 3,
+        'calc_cache_hit_rate'        => 70,   // Percentage (0-100).
+        'calc_connections_per_vcpu'  => 45,   // Optimized hosting baseline.
+        'calc_peak_to_average_ratio' => 2.5,  // For business hours traffic.
+        'calc_flash_spike_percent'   => 15,   // Percentage of monthly traffic in spike.
     );
 
     /**
@@ -203,6 +209,36 @@ class SynthLoad_Settings {
         // Debug logging - boolean
         if ( isset( $input['debug_logging_enabled'] ) ) {
             $sanitized['debug_logging_enabled'] = self::to_bool( $input['debug_logging_enabled'] );
+        }
+
+        // Calculator: Pages per visit - integer, 1-20.
+        if ( isset( $input['calc_pages_per_visit'] ) ) {
+            $pages                              = (int) $input['calc_pages_per_visit'];
+            $sanitized['calc_pages_per_visit'] = self::clamp( $pages, 1, 20 );
+        }
+
+        // Calculator: Cache hit rate - integer percentage, 0-99.
+        if ( isset( $input['calc_cache_hit_rate'] ) ) {
+            $rate                               = (int) $input['calc_cache_hit_rate'];
+            $sanitized['calc_cache_hit_rate'] = self::clamp( $rate, 0, 99 );
+        }
+
+        // Calculator: Connections per vCPU - integer, 5-200.
+        if ( isset( $input['calc_connections_per_vcpu'] ) ) {
+            $connections                              = (int) $input['calc_connections_per_vcpu'];
+            $sanitized['calc_connections_per_vcpu'] = self::clamp( $connections, 5, 200 );
+        }
+
+        // Calculator: Peak-to-average ratio - float, 1.0-10.0.
+        if ( isset( $input['calc_peak_to_average_ratio'] ) ) {
+            $ratio                                    = (float) $input['calc_peak_to_average_ratio'];
+            $sanitized['calc_peak_to_average_ratio'] = max( 1.0, min( 10.0, $ratio ) );
+        }
+
+        // Calculator: Flash spike percent - integer percentage, 1-50.
+        if ( isset( $input['calc_flash_spike_percent'] ) ) {
+            $percent                                = (int) $input['calc_flash_spike_percent'];
+            $sanitized['calc_flash_spike_percent'] = self::clamp( $percent, 1, 50 );
         }
 
         return $sanitized;
