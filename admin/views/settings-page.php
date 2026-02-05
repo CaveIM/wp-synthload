@@ -346,53 +346,6 @@ $limits = SynthLoad_Settings::get_hard_limits();
             </table>
         </div>
 
-        <!-- Safety Limits Info -->
-        <div class="synthload-section">
-            <h2><?php esc_html_e( 'Safety Limits', 'wp-synthload' ); ?></h2>
-            <p class="synthload-limits-info">
-                <?php esc_html_e( 'The following hard limits are enforced to protect your server:', 'wp-synthload' ); ?>
-            </p>
-            <ul class="synthload-limits-info">
-                <li>
-                    <?php
-                    printf(
-                        /* translators: %s: max CPU iterations in thousands, %s: actual iterations */
-                        esc_html__( 'Maximum CPU iterations: %s thousand (%s actual)', 'wp-synthload' ),
-                        number_format( $limits['max_cpu_iterations'] ),
-                        number_format( $limits['max_cpu_iterations'] * 1000 )
-                    );
-                    ?>
-                </li>
-                <li>
-                    <?php
-                    printf(
-                        /* translators: %d: max reads */
-                        esc_html__( 'Maximum reads per request: %d', 'wp-synthload' ),
-                        $limits['max_read_query_count']
-                    );
-                    ?>
-                </li>
-                <li>
-                    <?php
-                    printf(
-                        /* translators: %d: max writes */
-                        esc_html__( 'Maximum writes per request: %d', 'wp-synthload' ),
-                        $limits['max_write_op_count']
-                    );
-                    ?>
-                </li>
-                <li>
-                    <?php
-                    printf(
-                        /* translators: %d: max rows */
-                        esc_html__( 'Maximum events table rows: %d', 'wp-synthload' ),
-                        number_format( $limits['max_rows_to_keep'] )
-                    );
-                    ?>
-                </li>
-            </ul>
-        </div>
-
         <?php submit_button( __( 'Save Settings', 'wp-synthload' ), 'primary', 'synthload_save_settings' ); ?>
     </form>
 </div>

@@ -168,10 +168,6 @@ class SynthLoad_Admin {
                 padding-bottom: 10px;
                 border-bottom: 1px solid #c3c4c7;
             }
-            .synthload-limits-info {
-                color: #666;
-                font-size: 12px;
-            }
             #synthload_test_results td {
                 padding: 8px 12px;
             }
