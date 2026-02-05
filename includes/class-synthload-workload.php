@@ -422,6 +422,9 @@ class SynthLoad_Workload {
 
     /**
      * Perform database writes.
+     *
+     * Each write is a complete lifecycle: INSERT → UPDATE → DELETE.
+     * This keeps the table clean and ensures exact operation counts.
      */
     private function perform_writes(): void {
         $count  = (int) $this->settings['write_op_count'];
@@ -434,43 +437,23 @@ class SynthLoad_Workload {
             return;
         }
 
-        // Check if deletes will be skipped (table not at 80% capacity)
-        $max_rows      = $limits['max_rows_to_keep'];
-        $current_count = $this->db->count_events();
-        $can_delete    = $current_count >= ( $max_rows * 0.8 );
-
-        if ( $can_delete ) {
-            // Split: 60% INSERT, 30% UPDATE, 10% DELETE
-            $insert_count = (int) ceil( $count * 0.6 );
-            $update_count = (int) ceil( $count * 0.3 );
-            $delete_count = $count - $insert_count - $update_count;
-        } else {
-            // No deletes - redistribute to inserts and updates (65% / 35%)
-            $insert_count = (int) ceil( $count * 0.65 );
-            $update_count = $count - $insert_count;
-            $delete_count = 0;
-        }
-
-        $this->perform_inserts( $insert_count );
-        $this->perform_updates( $update_count );
-
-        if ( $delete_count > 0 ) {
-            $this->perform_deletes( $delete_count );
-        }
+        $this->perform_write_cycles( $count );
     }
 
     /**
-     * Perform INSERT operations.
+     * Perform complete write cycles (INSERT → UPDATE → DELETE).
      *
-     * @param int $count Number of inserts to perform.
+     * @param int $count Number of write cycles to perform.
      */
-    private function perform_inserts( int $count ): void {
-        for ( $i = 0; $i < $count; $i++ ) {
-            // Generate varied random payload sizes and content
-            $payload = wp_json_encode( $this->generate_random_payload( $i ) );
+    private function perform_write_cycles( int $count ): void {
+        global $wpdb;
 
+        for ( $i = 0; $i < $count; $i++ ) {
+            // 1. INSERT
+            $payload          = wp_json_encode( $this->generate_random_payload( $i ) );
             $event_request_id = $this->request_id . '-' . $i . '-' . wp_generate_password( 8, false );
-            $insert_id        = $this->db->insert_event( array(
+
+            $insert_id = $this->db->insert_event( array(
                 'request_id' => $event_request_id,
                 'payload'    => $payload,
             ) );
@@ -480,9 +463,50 @@ class SynthLoad_Workload {
                 'insert_id'  => $insert_id,
                 'request_id' => $event_request_id,
             ) );
-
             ++$this->writes_performed;
-            $this->handle_db_error( 'inserts' );
+            $this->handle_db_error( 'insert' );
+
+            if ( ! $insert_id ) {
+                continue; // Skip update/delete if insert failed
+            }
+
+            // 2. UPDATE
+            $update_payload = wp_json_encode( array(
+                'updated_at' => gmdate( 'c' ),
+                'microtime'  => microtime( true ),
+                'updated_by' => $this->request_id,
+                'update_key' => wp_generate_password( 24, false ),
+                'random_val' => random_int( 1, 999999 ),
+            ) );
+
+            $wpdb->update(
+                $this->db->get_table_name(),
+                array( 'payload' => $update_payload ),
+                array( 'id' => $insert_id ),
+                array( '%s' ),
+                array( '%d' )
+            );
+
+            $this->log_operation( 'write', 'update', array(
+                'table'    => $this->db->get_table_name(),
+                'event_id' => $insert_id,
+            ) );
+            ++$this->writes_performed;
+            $this->handle_db_error( 'update' );
+
+            // 3. DELETE
+            $wpdb->delete(
+                $this->db->get_table_name(),
+                array( 'id' => $insert_id ),
+                array( '%d' )
+            );
+
+            $this->log_operation( 'write', 'delete', array(
+                'table'    => $this->db->get_table_name(),
+                'event_id' => $insert_id,
+            ) );
+            ++$this->writes_performed;
+            $this->handle_db_error( 'delete' );
         }
     }
 
@@ -506,79 +530,6 @@ class SynthLoad_Workload {
             'random_hash' => hash( 'sha256', uniqid( '', true ) . random_int( 0, PHP_INT_MAX ) ),
             'extra_data'  => wp_generate_password( $extra_data_size, false ),
         );
-    }
-
-    /**
-     * Perform UPDATE operations.
-     *
-     * @param int $count Number of updates to perform.
-     */
-    private function perform_updates( int $count ): void {
-        global $wpdb;
-
-        if ( $count < 1 ) {
-            return;
-        }
-
-        // Get random events to update
-        $events = $this->db->read_random_events( $count );
-
-        $update_index = 0;
-        foreach ( $events as $event ) {
-            // Generate varied update payload
-            $new_payload = wp_json_encode( array(
-                'updated_at'  => gmdate( 'c' ),
-                'microtime'   => microtime( true ),
-                'updated_by'  => $this->request_id,
-                'update_key'  => wp_generate_password( 24, false ),
-                'random_val'  => random_int( 1, 999999 ),
-                'extra_data'  => wp_generate_password( random_int( 100, 300 ), false ),
-            ) );
-            ++$update_index;
-
-            $rows_affected = $wpdb->update(
-                $this->db->get_table_name(),
-                array( 'payload' => $new_payload ),
-                array( 'id' => $event->id ),
-                array( '%s' ),
-                array( '%d' )
-            );
-
-            $this->log_operation( 'write', 'update', array(
-                'table'         => $this->db->get_table_name(),
-                'event_id'      => $event->id,
-                'rows_affected' => $rows_affected,
-            ) );
-
-            ++$this->writes_performed;
-            $this->handle_db_error( 'updates' );
-        }
-    }
-
-    /**
-     * Perform DELETE operations.
-     *
-     * Only called when table is at 80%+ capacity (checked in perform_writes).
-     *
-     * @param int $count Number of deletes to perform.
-     */
-    private function perform_deletes( int $count ): void {
-        if ( $count < 1 ) {
-            return;
-        }
-
-        // Limit cleanup per request to prevent long-running deletes
-        $delete_limit = min( $count, 100 );
-        $deleted      = $this->db->cleanup_old_events( 3600, $delete_limit );
-
-        $this->log_operation( 'write', 'delete', array(
-            'table'        => $this->db->get_table_name(),
-            'rows_deleted' => $deleted,
-            'max_age_sec'  => 3600,
-        ) );
-
-        $this->writes_performed += $deleted;
-        $this->handle_db_error( 'deletes' );
     }
 
     /**

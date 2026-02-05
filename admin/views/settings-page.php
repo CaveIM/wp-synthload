@@ -180,7 +180,7 @@ $limits = SynthLoad_Settings::get_hard_limits();
                 </tr>
                 <tr>
                     <th scope="row">
-                        <label for="synthload_write_op_count"><?php esc_html_e( 'Database Writes', 'wp-synthload' ); ?></label>
+                        <label for="synthload_write_op_count"><?php esc_html_e( 'Write Cycles', 'wp-synthload' ); ?></label>
                     </th>
                     <td>
                         <input type="number"
@@ -194,8 +194,8 @@ $limits = SynthLoad_Settings::get_hard_limits();
                         <p class="description">
                             <?php
                             printf(
-                                /* translators: %d: maximum write operations */
-                                esc_html__( 'Number of write operations per request (max: %d).', 'wp-synthload' ),
+                                /* translators: %d: maximum write cycles */
+                                esc_html__( 'Each cycle: INSERT → UPDATE → DELETE (3 ops). Max: %d cycles.', 'wp-synthload' ),
                                 $limits['max_write_op_count']
                             );
                             ?>
