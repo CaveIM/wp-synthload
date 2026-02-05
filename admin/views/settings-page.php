@@ -25,6 +25,10 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
            class="nav-tab <?php echo 'workload' === $current_tab ? 'nav-tab-active' : ''; ?>">
             <?php esc_html_e( 'Workload', 'wp-synthload' ); ?>
         </a>
+        <a href="?page=synthload-settings&tab=export"
+           class="nav-tab <?php echo 'export' === $current_tab ? 'nav-tab-active' : ''; ?>">
+            <?php esc_html_e( 'Export / Import', 'wp-synthload' ); ?>
+        </a>
         <a href="?page=synthload-settings&tab=settings"
            class="nav-tab <?php echo 'settings' === $current_tab ? 'nav-tab-active' : ''; ?>">
             <?php esc_html_e( 'Settings', 'wp-synthload' ); ?>
@@ -155,9 +159,11 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                 <?php wp_nonce_field( 'synthload_test_workload', 'synthload_test_nonce' ); ?>
             </div>
 
+        <?php elseif ( 'export' === $current_tab ) : ?>
+
             <!-- Config Export/Import Section -->
             <div class="synthload-section">
-                <h2><?php esc_html_e( 'Export / Import', 'wp-synthload' ); ?></h2>
+                <h2><?php esc_html_e( 'Export Configuration', 'wp-synthload' ); ?></h2>
                 <p class="description" style="margin-bottom: 15px;">
                     <?php esc_html_e( 'Copy this configuration to replicate the same test parameters on another server.', 'wp-synthload' ); ?>
                 </p>
@@ -176,7 +182,7 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                 <table class="form-table" role="presentation">
                     <tr>
                         <th scope="row">
-                            <label for="synthload_export_config"><?php esc_html_e( 'Export', 'wp-synthload' ); ?></label>
+                            <label for="synthload_export_config"><?php esc_html_e( 'Current Config', 'wp-synthload' ); ?></label>
                         </th>
                         <td>
                             <textarea id="synthload_export_config"
@@ -194,20 +200,28 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                             </p>
                         </td>
                     </tr>
+                </table>
+            </div>
+
+            <div class="synthload-section">
+                <h2><?php esc_html_e( 'Import Configuration', 'wp-synthload' ); ?></h2>
+                <p class="description" style="margin-bottom: 15px;">
+                    <?php esc_html_e( 'Paste a configuration JSON to apply those settings.', 'wp-synthload' ); ?>
+                </p>
+
+                <table class="form-table" role="presentation">
                     <tr>
                         <th scope="row">
-                            <label for="synthload_import_config"><?php esc_html_e( 'Import', 'wp-synthload' ); ?></label>
+                            <label for="synthload_import_config"><?php esc_html_e( 'Paste Config', 'wp-synthload' ); ?></label>
                         </th>
                         <td>
                             <textarea id="synthload_import_config"
+                                      name="import_config"
                                       rows="6"
                                       class="large-text code"
                                       placeholder="<?php esc_attr_e( 'Paste configuration JSON here...', 'wp-synthload' ); ?>"></textarea>
                             <p class="description">
-                                <button type="button" id="synthload_import_btn" class="button button-small">
-                                    <?php esc_html_e( 'Apply to Form', 'wp-synthload' ); ?>
-                                </button>
-                                <span id="synthload_import_status" style="margin-left: 10px; display: none;"></span>
+                                <?php esc_html_e( 'Paste JSON and click Save Settings to apply the configuration.', 'wp-synthload' ); ?>
                             </p>
                         </td>
                     </tr>

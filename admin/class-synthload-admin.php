@@ -79,18 +79,65 @@ class SynthLoad_Admin {
         $old_slug        = $old_settings['endpoint_slug'];
         $old_token_id    = SynthLoad_Settings::extract_token_id( $old_settings['loaderio_token'] );
 
-        // Collect form data
-        $new_settings = array(
-            'loaderio_token'        => isset( $_POST['loaderio_token'] ) ? sanitize_text_field( wp_unslash( $_POST['loaderio_token'] ) ) : '',
-            'endpoint_slug'         => isset( $_POST['endpoint_slug'] ) ? sanitize_text_field( wp_unslash( $_POST['endpoint_slug'] ) ) : 'synthload',
-            'endpoint_enabled'      => isset( $_POST['endpoint_enabled'] ) ? true : false,
-            'access_token'          => isset( $_POST['access_token'] ) ? sanitize_text_field( wp_unslash( $_POST['access_token'] ) ) : '',
-            'read_query_count'      => isset( $_POST['read_query_count'] ) ? (int) $_POST['read_query_count'] : 100,
-            'write_op_count'        => isset( $_POST['write_op_count'] ) ? (int) $_POST['write_op_count'] : 5,
-            'cpu_iterations'        => isset( $_POST['cpu_iterations'] ) ? (int) $_POST['cpu_iterations'] : 100,
-            'bypass_object_cache'   => isset( $_POST['bypass_object_cache'] ) ? true : false,
-            'debug_logging_enabled' => isset( $_POST['debug_logging_enabled'] ) ? true : false,
-        );
+        // Collect form data - start with current settings
+        $new_settings = array();
+
+        // Check for import config on the export tab
+        $current_tab = isset( $_POST['synthload_tab'] ) ? sanitize_key( $_POST['synthload_tab'] ) : 'workload';
+        if ( 'export' === $current_tab && ! empty( $_POST['import_config'] ) ) {
+            $import_json = sanitize_textarea_field( wp_unslash( $_POST['import_config'] ) );
+            $import_data = json_decode( $import_json, true );
+
+            if ( json_last_error() === JSON_ERROR_NONE && is_array( $import_data ) ) {
+                // Apply imported values
+                if ( isset( $import_data['read_query_count'] ) ) {
+                    $new_settings['read_query_count'] = (int) $import_data['read_query_count'];
+                }
+                if ( isset( $import_data['write_op_count'] ) ) {
+                    $new_settings['write_op_count'] = (int) $import_data['write_op_count'];
+                }
+                if ( isset( $import_data['cpu_iterations'] ) ) {
+                    $new_settings['cpu_iterations'] = (int) $import_data['cpu_iterations'];
+                }
+                if ( isset( $import_data['bypass_object_cache'] ) ) {
+                    $new_settings['bypass_object_cache'] = (bool) $import_data['bypass_object_cache'];
+                }
+            } else {
+                add_settings_error(
+                    'synthload_settings',
+                    'invalid_json',
+                    __( 'Invalid JSON format in import configuration.', 'wp-synthload' ),
+                    'error'
+                );
+            }
+        }
+
+        // Collect form data from other tabs (only if explicitly set in POST)
+        if ( isset( $_POST['loaderio_token'] ) ) {
+            $new_settings['loaderio_token'] = sanitize_text_field( wp_unslash( $_POST['loaderio_token'] ) );
+        }
+        if ( isset( $_POST['endpoint_slug'] ) ) {
+            $new_settings['endpoint_slug'] = sanitize_text_field( wp_unslash( $_POST['endpoint_slug'] ) );
+        }
+        if ( 'settings' === $current_tab ) {
+            $new_settings['endpoint_enabled'] = isset( $_POST['endpoint_enabled'] );
+            $new_settings['debug_logging_enabled'] = isset( $_POST['debug_logging_enabled'] );
+        }
+        if ( isset( $_POST['access_token'] ) ) {
+            $new_settings['access_token'] = sanitize_text_field( wp_unslash( $_POST['access_token'] ) );
+        }
+        if ( isset( $_POST['read_query_count'] ) ) {
+            $new_settings['read_query_count'] = (int) $_POST['read_query_count'];
+        }
+        if ( isset( $_POST['write_op_count'] ) ) {
+            $new_settings['write_op_count'] = (int) $_POST['write_op_count'];
+        }
+        if ( isset( $_POST['cpu_iterations'] ) ) {
+            $new_settings['cpu_iterations'] = (int) $_POST['cpu_iterations'];
+        }
+        if ( 'workload' === $current_tab ) {
+            $new_settings['bypass_object_cache'] = isset( $_POST['bypass_object_cache'] );
+        }
 
         // Update settings
         $updated = SynthLoad_Settings::update( $new_settings );
