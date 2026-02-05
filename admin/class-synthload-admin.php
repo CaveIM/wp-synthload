@@ -296,15 +296,31 @@ class SynthLoad_Admin {
                     var textarea = document.getElementById('synthload_export_config');
                     var status = $('#synthload_copy_status');
 
-                    navigator.clipboard.writeText(textarea.value).then(function() {
-                        status.show().delay(2000).fadeOut();
-                    }).catch(function() {
-                        // Fallback for older browsers
-                        textarea.select();
+                    if (!textarea) return;
+
+                    // Try modern clipboard API first (requires HTTPS)
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(textarea.value).then(function() {
+                            status.show().delay(2000).fadeOut();
+                        }).catch(function() {
+                            fallbackCopy(textarea, status);
+                        });
+                    } else {
+                        fallbackCopy(textarea, status);
+                    }
+                });
+
+                // Fallback copy function for HTTP contexts
+                function fallbackCopy(textarea, status) {
+                    textarea.focus();
+                    textarea.select();
+                    try {
                         document.execCommand('copy');
                         status.show().delay(2000).fadeOut();
-                    });
-                });
+                    } catch (err) {
+                        status.text('Copy failed - please select and copy manually').css('color', '#d63638').show();
+                    }
+                }
 
                 // Config import - apply to form
                 $('#synthload_import_btn').on('click', function() {
