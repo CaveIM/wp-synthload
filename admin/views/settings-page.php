@@ -306,17 +306,59 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                         <th scope="row"><?php esc_html_e( 'Traffic Shape', 'wp-synthload' ); ?></th>
                         <td>
                             <fieldset>
-                                <label style="display: block; margin-bottom: 8px;">
+                                <label class="synthload-shape-option">
                                     <input type="radio" name="calc_traffic_shape" value="uniform" checked />
-                                    <?php esc_html_e( 'Uniform (spread evenly 24/7)', 'wp-synthload' ); ?>
+                                    <span><?php esc_html_e( 'Uniform (spread evenly 24/7)', 'wp-synthload' ); ?></span>
+                                    <span class="synthload-shape-chart synthload-chart-uniform">
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                    </span>
                                 </label>
-                                <label style="display: block; margin-bottom: 8px;">
+                                <label class="synthload-shape-option">
                                     <input type="radio" name="calc_traffic_shape" value="business" />
-                                    <?php esc_html_e( 'Business Hours (8h workday, 22 days/month)', 'wp-synthload' ); ?>
+                                    <span><?php esc_html_e( 'Business Hours (8h workday, 22 days/month)', 'wp-synthload' ); ?></span>
+                                    <span class="synthload-shape-chart synthload-chart-business">
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                    </span>
                                 </label>
-                                <label style="display: block;">
+                                <label class="synthload-shape-option">
                                     <input type="radio" name="calc_traffic_shape" value="flash_sale" />
-                                    <?php esc_html_e( 'Flash Sale (spike traffic in 1 hour)', 'wp-synthload' ); ?>
+                                    <span><?php esc_html_e( 'Flash Sale (spike traffic in 1 hour)', 'wp-synthload' ); ?></span>
+                                    <span class="synthload-shape-chart synthload-chart-flash">
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                        <span class="synthload-shape-bar"></span>
+                                    </span>
                                 </label>
                             </fieldset>
                         </td>

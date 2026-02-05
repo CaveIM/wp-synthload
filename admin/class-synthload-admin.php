@@ -346,6 +346,69 @@ class SynthLoad_Admin {
                 border-radius: 3px;
                 font-size: 12px;
             }
+            /* Traffic shape mini charts */
+            .synthload-shape-option {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 10px;
+            }
+            .synthload-shape-option:last-child {
+                margin-bottom: 0;
+            }
+            .synthload-shape-chart {
+                display: flex;
+                align-items: flex-end;
+                gap: 2px;
+                height: 24px;
+                padding: 2px 4px;
+                background: #f6f7f7;
+                border-radius: 3px;
+                min-width: 60px;
+            }
+            .synthload-shape-bar {
+                width: 4px;
+                background: #2271b1;
+                border-radius: 1px;
+                transition: height 0.2s ease;
+            }
+            .synthload-shape-option input:checked ~ .synthload-shape-chart .synthload-shape-bar {
+                background: #135e96;
+            }
+            /* Uniform: all bars same height */
+            .synthload-chart-uniform .synthload-shape-bar {
+                height: 12px;
+            }
+            /* Business hours: middle bars taller */
+            .synthload-chart-business .synthload-shape-bar:nth-child(1),
+            .synthload-chart-business .synthload-shape-bar:nth-child(2),
+            .synthload-chart-business .synthload-shape-bar:nth-child(11),
+            .synthload-chart-business .synthload-shape-bar:nth-child(12) {
+                height: 4px;
+            }
+            .synthload-chart-business .synthload-shape-bar:nth-child(3),
+            .synthload-chart-business .synthload-shape-bar:nth-child(10) {
+                height: 8px;
+            }
+            .synthload-chart-business .synthload-shape-bar:nth-child(4),
+            .synthload-chart-business .synthload-shape-bar:nth-child(5),
+            .synthload-chart-business .synthload-shape-bar:nth-child(6),
+            .synthload-chart-business .synthload-shape-bar:nth-child(7),
+            .synthload-chart-business .synthload-shape-bar:nth-child(8),
+            .synthload-chart-business .synthload-shape-bar:nth-child(9) {
+                height: 20px;
+            }
+            /* Flash sale: one spike */
+            .synthload-chart-flash .synthload-shape-bar {
+                height: 6px;
+            }
+            .synthload-chart-flash .synthload-shape-bar:nth-child(8) {
+                height: 22px;
+                background: #d63638;
+            }
+            .synthload-shape-option input:checked ~ .synthload-chart-flash .synthload-shape-bar:nth-child(8) {
+                background: #b32d2e;
+            }
         ';
 
         wp_add_inline_style( 'common', $css );
