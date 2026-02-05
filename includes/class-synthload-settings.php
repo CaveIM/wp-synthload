@@ -223,10 +223,10 @@ class SynthLoad_Settings {
             $sanitized['calc_cache_hit_rate'] = self::clamp( $rate, 0, 99 );
         }
 
-        // Calculator: Connections per vCPU - integer, 5-200.
+        // Calculator: Connections per vCPU - integer, 1-200.
         if ( isset( $input['calc_connections_per_vcpu'] ) ) {
             $connections                              = (int) $input['calc_connections_per_vcpu'];
-            $sanitized['calc_connections_per_vcpu'] = self::clamp( $connections, 5, 200 );
+            $sanitized['calc_connections_per_vcpu'] = self::clamp( $connections, 1, 200 );
         }
 
         // Calculator: Peak-to-average ratio - float, 1.0-10.0.

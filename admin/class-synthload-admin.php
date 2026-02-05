@@ -750,12 +750,17 @@ class SynthLoad_Admin {
 
                 function getAssumptions() {
                     if ($('#calc_advanced_toggle').is(':checked')) {
+                        var pagesVal = parseInt($('#calc_pages_per_visit').val(), 10);
+                        var cacheVal = parseInt($('#calc_cache_hit_rate').val(), 10);
+                        var connVal = parseInt($('#calc_connections_per_vcpu').val(), 10);
+                        var peakVal = parseFloat($('#calc_peak_to_average_ratio').val());
+                        var spikeVal = parseInt($('#calc_flash_spike_percent').val(), 10);
                         return {
-                            pagesPerVisit: parseInt($('#calc_pages_per_visit').val(), 10) || calcDefaults.pagesPerVisit,
-                            cacheHitRate: parseInt($('#calc_cache_hit_rate').val(), 10) || calcDefaults.cacheHitRate,
-                            connectionsPerVcpu: parseInt($('#calc_connections_per_vcpu').val(), 10) || calcDefaults.connectionsPerVcpu,
-                            peakToAverageRatio: parseFloat($('#calc_peak_to_average_ratio').val()) || calcDefaults.peakToAverageRatio,
-                            flashSpikePercent: parseInt($('#calc_flash_spike_percent').val(), 10) || calcDefaults.flashSpikePercent
+                            pagesPerVisit: isNaN(pagesVal) ? calcDefaults.pagesPerVisit : pagesVal,
+                            cacheHitRate: isNaN(cacheVal) ? calcDefaults.cacheHitRate : cacheVal,
+                            connectionsPerVcpu: isNaN(connVal) ? calcDefaults.connectionsPerVcpu : connVal,
+                            peakToAverageRatio: isNaN(peakVal) ? calcDefaults.peakToAverageRatio : peakVal,
+                            flashSpikePercent: isNaN(spikeVal) ? calcDefaults.flashSpikePercent : spikeVal
                         };
                     }
                     return calcDefaults;
@@ -834,9 +839,8 @@ class SynthLoad_Admin {
                     calculateCapacity();
                 });
 
-                // Advanced settings inputs
-                $('#calc_pages_per_visit, #calc_cache_hit_rate, #calc_connections_per_vcpu, ' +
-                  '#calc_peak_to_average_ratio, #calc_flash_spike_percent').on('input change', calculateCapacity);
+                // Advanced settings inputs - use event delegation for hidden elements
+                $(document).on('input change', '#calc_pages_per_visit, #calc_cache_hit_rate, #calc_connections_per_vcpu, #calc_peak_to_average_ratio, #calc_flash_spike_percent', calculateCapacity);
 
                 // Initial setup
                 if ($('#calc_traffic_count').length) {
