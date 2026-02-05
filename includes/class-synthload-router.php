@@ -269,6 +269,45 @@ class SynthLoad_Router {
     }
 
     /**
+     * Get workload settings with query parameter overrides.
+     *
+     * Allows the AJAX test to pass form values via query parameters
+     * so tests run with the exact settings shown in the UI.
+     *
+     * @return array Settings array with any query param overrides applied.
+     */
+    private function get_workload_settings(): array {
+        $settings = SynthLoad_Settings::get_all();
+        $limits   = SynthLoad_Settings::get_hard_limits();
+
+        // Check for query parameter overrides (used by AJAX test)
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended
+
+        if ( isset( $_GET['read_query_count'] ) ) {
+            $value = (int) $_GET['read_query_count'];
+            $settings['read_query_count'] = max( 0, min( $value, $limits['max_read_query_count'] ) );
+        }
+
+        if ( isset( $_GET['write_op_count'] ) ) {
+            $value = (int) $_GET['write_op_count'];
+            $settings['write_op_count'] = max( 0, min( $value, $limits['max_write_op_count'] ) );
+        }
+
+        if ( isset( $_GET['cpu_iterations'] ) ) {
+            $value = (int) $_GET['cpu_iterations'];
+            $settings['cpu_iterations'] = max( 0, min( $value, $limits['max_cpu_iterations'] ) );
+        }
+
+        if ( isset( $_GET['bypass_object_cache'] ) ) {
+            $settings['bypass_object_cache'] = in_array( $_GET['bypass_object_cache'], array( '1', 'true', 'yes' ), true );
+        }
+
+        // phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+        return $settings;
+    }
+
+    /**
      * Dispatch to workload handler.
      */
     private function dispatch_workload(): void {
@@ -277,8 +316,8 @@ class SynthLoad_Router {
         // Disable all caching before workload execution
         $this->disable_caching();
 
-        // Get settings
-        $settings = SynthLoad_Settings::get_all();
+        // Get settings and apply any query parameter overrides
+        $settings = $this->get_workload_settings();
 
         // Create dependencies
         $db = new SynthLoad_Db( $wpdb );

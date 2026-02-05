@@ -110,8 +110,5 @@ add_action( 'plugins_loaded', function () {
         add_action( 'admin_init', array( $admin, 'process_form_submission' ), 5 ); // Early priority for redirect
         add_action( 'admin_init', array( $admin, 'register_settings' ) );
         add_action( 'admin_enqueue_scripts', array( $admin, 'enqueue_assets' ) );
-
-        // AJAX handler for test workload
-        add_action( 'wp_ajax_synthload_test_workload', array( 'SynthLoad_Admin', 'ajax_test_workload' ) );
     }
 }, 10 );

@@ -156,7 +156,6 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                 <div id="synthload_test_error" class="notice notice-error inline" style="display: none; margin-top: 15px;">
                     <p id="synthload_test_error_msg"></p>
                 </div>
-                <?php wp_nonce_field( 'synthload_test_workload', 'synthload_test_nonce' ); ?>
             </div>
 
         <?php elseif ( 'export' === $current_tab ) : ?>

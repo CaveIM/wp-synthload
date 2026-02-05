@@ -264,9 +264,13 @@ class SynthLoad_Admin {
 
         wp_add_inline_style( 'common', $css );
 
+        $settings = SynthLoad_Settings::get_all();
+        $endpoint_url = home_url( '/' . $settings['endpoint_slug'] . '/' );
+
         $script = "
         (function($) {
-            var ajaxUrl = '" . esc_js( admin_url( 'admin-ajax.php' ) ) . "';
+            var endpointUrl = '" . esc_js( $endpoint_url ) . "';
+            var accessToken = '" . esc_js( $settings['access_token'] ) . "';
 
             $(document).ready(function() {
                 // Update URL preview when slug changes
@@ -391,35 +395,58 @@ class SynthLoad_Admin {
                     results.hide();
                     errorBox.hide();
 
-                    // Gather current form values
-                    var data = {
-                        action: 'synthload_test_workload',
-                        nonce: $('#synthload_test_nonce').val(),
-                        read_query_count: $('#synthload_read_query_count').val(),
-                        write_op_count: $('#synthload_write_op_count').val(),
-                        cpu_iterations: $('#synthload_cpu_iterations').val(),
-                        bypass_object_cache: $('#synthload_bypass_object_cache').is(':checked') ? 'true' : 'false'
-                    };
+                    // Build query parameters from form values
+                    var params = new URLSearchParams();
+                    params.set('format', 'json');
+                    params.set('read_query_count', $('#synthload_read_query_count').val());
+                    params.set('write_op_count', $('#synthload_write_op_count').val());
+                    params.set('cpu_iterations', $('#synthload_cpu_iterations').val());
+                    params.set('bypass_object_cache', $('#synthload_bypass_object_cache').is(':checked') ? '1' : '0');
 
-                    $.post(ajaxUrl, data, function(response) {
-                        spinner.removeClass('is-active');
-                        btn.prop('disabled', false);
+                    // Add access token if configured
+                    if (accessToken) {
+                        params.set('token', accessToken);
+                    }
 
-                        if (response.success) {
-                            $('#synthload_result_duration').text(response.data.duration_ms + ' ms');
-                            $('#synthload_result_reads').text(response.data.db_reads.toLocaleString());
-                            $('#synthload_result_writes').text(response.data.db_writes.toLocaleString());
-                            $('#synthload_result_cpu').text(response.data.cpu_iterations.toLocaleString());
-                            results.show();
-                        } else {
-                            $('#synthload_test_error_msg').text(response.data.message || 'Test failed.');
+                    var testUrl = endpointUrl + '?' + params.toString();
+
+                    // Start timing the full request round-trip
+                    var startTime = performance.now();
+
+                    $.ajax({
+                        url: testUrl,
+                        method: 'GET',
+                        dataType: 'json',
+                        success: function(response) {
+                            var endTime = performance.now();
+                            var roundTripMs = Math.round(endTime - startTime);
+
+                            spinner.removeClass('is-active');
+                            btn.prop('disabled', false);
+
+                            if (response && response.execution) {
+                                $('#synthload_result_duration').text(roundTripMs + ' ms');
+                                $('#synthload_result_reads').text(response.execution.db_reads.toLocaleString());
+                                $('#synthload_result_writes').text(response.execution.db_writes.toLocaleString());
+                                $('#synthload_result_cpu').text(response.execution.cpu_iterations.toLocaleString());
+                                results.show();
+                            } else {
+                                $('#synthload_test_error_msg').text('Unexpected response format.');
+                                errorBox.show();
+                            }
+                        },
+                        error: function(xhr) {
+                            spinner.removeClass('is-active');
+                            btn.prop('disabled', false);
+                            var msg = 'Request failed: ' + xhr.status;
+                            if (xhr.status === 403) {
+                                msg = 'Access denied. Check access token settings.';
+                            } else if (xhr.status === 404) {
+                                msg = 'Endpoint not found. Try saving settings to flush rewrite rules.';
+                            }
+                            $('#synthload_test_error_msg').text(msg);
                             errorBox.show();
                         }
-                    }).fail(function(xhr) {
-                        spinner.removeClass('is-active');
-                        btn.prop('disabled', false);
-                        $('#synthload_test_error_msg').text('Request failed: ' + xhr.statusText);
-                        errorBox.show();
                     });
                 });
             });
@@ -513,51 +540,4 @@ class SynthLoad_Admin {
         return ABSPATH . 'loaderio-' . $token_id . '.txt';
     }
 
-    /**
-     * Handle AJAX test workload request.
-     *
-     * Executes a workload with the provided form settings and returns results.
-     */
-    public static function ajax_test_workload(): void {
-        // Verify nonce
-        if ( ! isset( $_POST['nonce'] ) ||
-             ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'synthload_test_workload' ) ) {
-            wp_send_json_error( array( 'message' => __( 'Security check failed.', 'wp-synthload' ) ), 403 );
-        }
-
-        // Check permissions
-        if ( ! current_user_can( 'manage_options' ) ) {
-            wp_send_json_error( array( 'message' => __( 'Permission denied.', 'wp-synthload' ) ), 403 );
-        }
-
-        // Build settings from POST data
-        $test_settings = array(
-            'read_query_count'      => isset( $_POST['read_query_count'] ) ? (int) $_POST['read_query_count'] : 100,
-            'write_op_count'        => isset( $_POST['write_op_count'] ) ? (int) $_POST['write_op_count'] : 5,
-            'cpu_iterations'        => isset( $_POST['cpu_iterations'] ) ? (int) $_POST['cpu_iterations'] : 100,
-            'bypass_object_cache'   => isset( $_POST['bypass_object_cache'] ) && 'true' === $_POST['bypass_object_cache'],
-            'debug_logging_enabled' => false, // Don't log during tests
-        );
-
-        // Sanitize through settings class to enforce limits
-        $test_settings = SynthLoad_Settings::sanitize( $test_settings );
-
-        // Merge with defaults for any missing keys
-        $test_settings = array_merge( SynthLoad_Settings::get_defaults(), $test_settings );
-
-        // Execute workload
-        global $wpdb;
-        $db       = new SynthLoad_Db( $wpdb );
-        $workload = new SynthLoad_Workload( $db, $test_settings );
-        $result   = $workload->execute();
-
-        // Return results
-        wp_send_json_success( array(
-            'duration_ms'    => $result['execution']['duration_ms'],
-            'db_reads'       => $result['execution']['db_reads'],
-            'db_writes'      => $result['execution']['db_writes'],
-            'cpu_iterations' => $result['execution']['cpu_iterations'],
-            'request_id'     => $result['request_id'],
-        ) );
-    }
 }
