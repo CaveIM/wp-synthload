@@ -538,17 +538,22 @@ class SynthLoad_Workload {
      * Executes a fixed number of hash operations to generate consistent CPU load.
      * The actual time taken depends on server CPU performance, making this
      * useful for comparing server capabilities under load.
+     *
+     * Note: Settings store iterations in thousands (e.g., 100 = 100,000 actual iterations).
      */
     private function perform_cpu_work(): void {
-        $iterations = (int) $this->settings['cpu_iterations'];
-        $limits     = SynthLoad_Settings::get_hard_limits();
+        $iterations_thousands = (int) $this->settings['cpu_iterations'];
+        $limits               = SynthLoad_Settings::get_hard_limits();
 
-        // Apply hard limit
-        $iterations = min( $iterations, $limits['max_cpu_iterations'] );
+        // Apply hard limit (both in thousands)
+        $iterations_thousands = min( $iterations_thousands, $limits['max_cpu_iterations'] );
 
-        if ( $iterations < 1 ) {
+        if ( $iterations_thousands < 1 ) {
             return;
         }
+
+        // Convert from thousands to actual iterations
+        $iterations = $iterations_thousands * 1000;
 
         $cpu_start = $this->get_elapsed_ms();
 

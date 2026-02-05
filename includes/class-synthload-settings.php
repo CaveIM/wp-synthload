@@ -35,7 +35,7 @@ class SynthLoad_Settings {
         'profile'               => 'general',
         'read_query_count'      => 100,
         'write_op_count'        => 5,
-        'cpu_iterations'        => 100000,
+        'cpu_iterations'        => 100, // Stored in thousands (100 = 100,000 iterations)
         'bypass_object_cache'   => false,
         'debug_logging_enabled' => false,
     );
@@ -46,9 +46,9 @@ class SynthLoad_Settings {
      * @var array
      */
     private static array $hard_limits = array(
-        'max_cpu_iterations'   => 10000000,
-        'max_read_query_count' => 2000,
-        'max_write_op_count'   => 200,
+        'max_cpu_iterations'   => 10000, // In thousands (10000 = 10 million iterations)
+        'max_read_query_count' => 10000,
+        'max_write_op_count'   => 1000,
         'max_rows_to_keep'     => 100000,
     );
 
@@ -202,10 +202,10 @@ class SynthLoad_Settings {
             $sanitized['write_op_count'] = self::clamp( $count, 0, $limits['max_write_op_count'] );
         }
 
-        // CPU iterations - integer, clamped to limits (min 1000)
+        // CPU iterations - integer in thousands, clamped to limits (min 1 = 1000 iterations)
         if ( isset( $input['cpu_iterations'] ) ) {
             $iterations                   = (int) $input['cpu_iterations'];
-            $sanitized['cpu_iterations'] = self::clamp( $iterations, 1000, $limits['max_cpu_iterations'] );
+            $sanitized['cpu_iterations'] = self::clamp( $iterations, 1, $limits['max_cpu_iterations'] );
         }
 
         // Cache bypass - boolean

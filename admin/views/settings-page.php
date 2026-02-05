@@ -204,22 +204,31 @@ $limits = SynthLoad_Settings::get_hard_limits();
                 </tr>
                 <tr>
                     <th scope="row">
-                        <label for="synthload_cpu_iterations"><?php esc_html_e( 'CPU Iterations', 'wp-synthload' ); ?></label>
+                        <label for="synthload_cpu_iterations"><?php esc_html_e( 'CPU Iterations (thousands)', 'wp-synthload' ); ?></label>
                     </th>
                     <td>
                         <input type="number"
                                id="synthload_cpu_iterations"
                                name="cpu_iterations"
                                value="<?php echo esc_attr( $settings['cpu_iterations'] ); ?>"
-                               min="1000"
+                               min="1"
                                max="<?php echo esc_attr( $limits['max_cpu_iterations'] ); ?>"
-                               step="1000"
-                               class="regular-text" />
+                               step="1"
+                               class="small-text" />
+                        <span class="description" style="vertical-align: middle;">
+                            <?php
+                            printf(
+                                /* translators: %s: formatted iterations */
+                                esc_html__( '× 1,000 = %s hash operations', 'wp-synthload' ),
+                                '<strong id="synthload_cpu_display">' . number_format( $settings['cpu_iterations'] * 1000 ) . '</strong>'
+                            );
+                            ?>
+                        </span>
                         <p class="description">
                             <?php
                             printf(
-                                /* translators: %s: maximum CPU iterations */
-                                esc_html__( 'Number of hash operations per request (max: %s). Higher values = more CPU work.', 'wp-synthload' ),
+                                /* translators: %s: maximum CPU iterations in thousands */
+                                esc_html__( 'Higher values = more CPU work. Max: %s (10 million).', 'wp-synthload' ),
                                 number_format( $limits['max_cpu_iterations'] )
                             );
                             ?>
@@ -306,6 +315,69 @@ $limits = SynthLoad_Settings::get_hard_limits();
             </table>
         </div>
 
+        <!-- Config Export/Import Section -->
+        <div class="synthload-section">
+            <h2><?php esc_html_e( 'Configuration Export/Import', 'wp-synthload' ); ?></h2>
+            <p class="description" style="margin-bottom: 15px;">
+                <?php esc_html_e( 'Copy this configuration to replicate the same test parameters on another server.', 'wp-synthload' ); ?>
+            </p>
+
+            <?php
+            // Build exportable config (workload settings only)
+            $export_config = array(
+                'profile'             => $settings['profile'],
+                'read_query_count'    => $settings['read_query_count'],
+                'write_op_count'      => $settings['write_op_count'],
+                'cpu_iterations'      => $settings['cpu_iterations'],
+                'bypass_object_cache' => $settings['bypass_object_cache'],
+            );
+            $export_json = wp_json_encode( $export_config, JSON_PRETTY_PRINT );
+            ?>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">
+                        <label for="synthload_export_config"><?php esc_html_e( 'Export Config', 'wp-synthload' ); ?></label>
+                    </th>
+                    <td>
+                        <textarea id="synthload_export_config"
+                                  readonly
+                                  rows="8"
+                                  class="large-text code"
+                                  onclick="this.select();"><?php echo esc_textarea( $export_json ); ?></textarea>
+                        <p class="description">
+                            <button type="button" id="synthload_copy_config" class="button button-small">
+                                <?php esc_html_e( 'Copy to Clipboard', 'wp-synthload' ); ?>
+                            </button>
+                            <span id="synthload_copy_status" style="margin-left: 10px; color: #00a32a; display: none;">
+                                <?php esc_html_e( 'Copied!', 'wp-synthload' ); ?>
+                            </span>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <label for="synthload_import_config"><?php esc_html_e( 'Import Config', 'wp-synthload' ); ?></label>
+                    </th>
+                    <td>
+                        <textarea id="synthload_import_config"
+                                  rows="8"
+                                  class="large-text code"
+                                  placeholder="<?php esc_attr_e( 'Paste configuration JSON here...', 'wp-synthload' ); ?>"></textarea>
+                        <p class="description">
+                            <button type="button" id="synthload_import_btn" class="button button-small">
+                                <?php esc_html_e( 'Apply to Form', 'wp-synthload' ); ?>
+                            </button>
+                            <span id="synthload_import_status" style="margin-left: 10px; display: none;"></span>
+                        </p>
+                        <p class="description">
+                            <?php esc_html_e( 'Paste a configuration from another server to populate the form. Then save to apply.', 'wp-synthload' ); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
         <!-- Safety Limits Info -->
         <div class="synthload-section">
             <h2><?php esc_html_e( 'Safety Limits', 'wp-synthload' ); ?></h2>
@@ -316,9 +388,10 @@ $limits = SynthLoad_Settings::get_hard_limits();
                 <li>
                     <?php
                     printf(
-                        /* translators: %s: max CPU iterations */
-                        esc_html__( 'Maximum CPU iterations: %s', 'wp-synthload' ),
-                        number_format( $limits['max_cpu_iterations'] )
+                        /* translators: %s: max CPU iterations in thousands, %s: actual iterations */
+                        esc_html__( 'Maximum CPU iterations: %s thousand (%s actual)', 'wp-synthload' ),
+                        number_format( $limits['max_cpu_iterations'] ),
+                        number_format( $limits['max_cpu_iterations'] * 1000 )
                     );
                     ?>
                 </li>

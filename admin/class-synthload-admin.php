@@ -189,17 +189,17 @@ class SynthLoad_Admin {
             'general'    => array(
                 'read_query_count' => 100,
                 'write_op_count'   => 5,
-                'cpu_iterations'   => 100000,
+                'cpu_iterations'   => 100, // 100k
             ),
             'membership' => array(
                 'read_query_count' => 200,
                 'write_op_count'   => 15,
-                'cpu_iterations'   => 250000,
+                'cpu_iterations'   => 250, // 250k
             ),
             'ecommerce'  => array(
                 'read_query_count' => 150,
                 'write_op_count'   => 25,
-                'cpu_iterations'   => 200000,
+                'cpu_iterations'   => 200, // 200k
             ),
         );
 
@@ -239,6 +239,90 @@ class SynthLoad_Admin {
                         urlPreview.textContent = baseUrl + this.value + '/';
                     });
                 }
+
+                // Update CPU iterations display when value changes
+                var cpuInput = document.getElementById('synthload_cpu_iterations');
+                var cpuDisplay = document.getElementById('synthload_cpu_display');
+
+                if (cpuInput && cpuDisplay) {
+                    cpuInput.addEventListener('input', function() {
+                        var val = parseInt(this.value, 10) || 0;
+                        cpuDisplay.textContent = (val * 1000).toLocaleString();
+                    });
+                }
+
+                // Config export - copy to clipboard
+                $('#synthload_copy_config').on('click', function() {
+                    var textarea = document.getElementById('synthload_export_config');
+                    var status = $('#synthload_copy_status');
+
+                    navigator.clipboard.writeText(textarea.value).then(function() {
+                        status.show().delay(2000).fadeOut();
+                    }).catch(function() {
+                        // Fallback for older browsers
+                        textarea.select();
+                        document.execCommand('copy');
+                        status.show().delay(2000).fadeOut();
+                    });
+                });
+
+                // Config import - apply to form
+                $('#synthload_import_btn').on('click', function() {
+                    var importText = $('#synthload_import_config').val().trim();
+                    var status = $('#synthload_import_status');
+
+                    if (!importText) {
+                        status.css('color', '#d63638').text('Please paste a configuration first.').show();
+                        return;
+                    }
+
+                    try {
+                        var config = JSON.parse(importText);
+
+                        // Apply values to form fields
+                        if (config.profile && ['general', 'membership', 'ecommerce'].indexOf(config.profile) !== -1) {
+                            $('#synthload_profile').val(config.profile);
+                        }
+                        if (typeof config.read_query_count !== 'undefined') {
+                            $('#synthload_read_query_count').val(parseInt(config.read_query_count, 10) || 100);
+                        }
+                        if (typeof config.write_op_count !== 'undefined') {
+                            $('#synthload_write_op_count').val(parseInt(config.write_op_count, 10) || 5);
+                        }
+                        if (typeof config.cpu_iterations !== 'undefined') {
+                            var cpuVal = parseInt(config.cpu_iterations, 10) || 100;
+                            $('#synthload_cpu_iterations').val(cpuVal);
+                            // Update display
+                            if (cpuDisplay) {
+                                cpuDisplay.textContent = (cpuVal * 1000).toLocaleString();
+                            }
+                        }
+                        if (typeof config.bypass_object_cache !== 'undefined') {
+                            $('#synthload_bypass_object_cache').prop('checked', !!config.bypass_object_cache);
+                        }
+
+                        status.css('color', '#00a32a').text('Configuration applied! Save to confirm changes.').show();
+                        updateExportConfig();
+
+                    } catch (e) {
+                        status.css('color', '#d63638').text('Invalid JSON format. Please check the configuration.').show();
+                    }
+                });
+
+                // Function to update export config from current form values
+                function updateExportConfig() {
+                    var exportConfig = {
+                        profile: $('#synthload_profile').val(),
+                        read_query_count: parseInt($('#synthload_read_query_count').val(), 10) || 100,
+                        write_op_count: parseInt($('#synthload_write_op_count').val(), 10) || 5,
+                        cpu_iterations: parseInt($('#synthload_cpu_iterations').val(), 10) || 100,
+                        bypass_object_cache: $('#synthload_bypass_object_cache').is(':checked')
+                    };
+                    $('#synthload_export_config').val(JSON.stringify(exportConfig, null, 2));
+                }
+
+                // Keep export config in sync when form values change
+                $('#synthload_profile, #synthload_read_query_count, #synthload_write_op_count, #synthload_cpu_iterations, #synthload_bypass_object_cache').on('change input', updateExportConfig);
 
                 // Test workload button handler
                 $('#synthload_test_btn').on('click', function(e) {
