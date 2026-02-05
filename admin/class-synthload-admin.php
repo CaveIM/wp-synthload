@@ -85,10 +85,9 @@ class SynthLoad_Admin {
             'endpoint_slug'         => isset( $_POST['endpoint_slug'] ) ? sanitize_text_field( wp_unslash( $_POST['endpoint_slug'] ) ) : 'synthload',
             'endpoint_enabled'      => isset( $_POST['endpoint_enabled'] ) ? true : false,
             'access_token'          => isset( $_POST['access_token'] ) ? sanitize_text_field( wp_unslash( $_POST['access_token'] ) ) : '',
-            'profile'               => isset( $_POST['profile'] ) ? sanitize_text_field( wp_unslash( $_POST['profile'] ) ) : 'general',
             'read_query_count'      => isset( $_POST['read_query_count'] ) ? (int) $_POST['read_query_count'] : 100,
             'write_op_count'        => isset( $_POST['write_op_count'] ) ? (int) $_POST['write_op_count'] : 5,
-            'cpu_iterations'        => isset( $_POST['cpu_iterations'] ) ? (int) $_POST['cpu_iterations'] : 100000,
+            'cpu_iterations'        => isset( $_POST['cpu_iterations'] ) ? (int) $_POST['cpu_iterations'] : 100,
             'bypass_object_cache'   => isset( $_POST['bypass_object_cache'] ) ? true : false,
             'debug_logging_enabled' => isset( $_POST['debug_logging_enabled'] ) ? true : false,
         );
@@ -184,51 +183,11 @@ class SynthLoad_Admin {
 
         wp_add_inline_style( 'common', $css );
 
-        // Profile presets JavaScript
-        $presets = array(
-            'general'    => array(
-                'read_query_count' => 100,
-                'write_op_count'   => 5,
-                'cpu_iterations'   => 100, // 100k
-            ),
-            'membership' => array(
-                'read_query_count' => 200,
-                'write_op_count'   => 15,
-                'cpu_iterations'   => 250, // 250k
-            ),
-            'ecommerce'  => array(
-                'read_query_count' => 150,
-                'write_op_count'   => 25,
-                'cpu_iterations'   => 200, // 200k
-            ),
-        );
-
         $script = "
         (function($) {
-            var synthloadPresets = " . wp_json_encode( $presets ) . ";
             var ajaxUrl = '" . esc_js( admin_url( 'admin-ajax.php' ) ) . "';
 
             $(document).ready(function() {
-                var loadPresetBtn = document.getElementById('synthload_load_preset');
-
-                if (loadPresetBtn) {
-                    loadPresetBtn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        var profileSelect = document.getElementById('synthload_profile');
-                        var profile = profileSelect ? profileSelect.value : 'general';
-                        var preset = synthloadPresets[profile];
-
-                        if (preset) {
-                            Object.keys(preset).forEach(function(key) {
-                                var input = document.getElementById('synthload_' + key);
-                                if (input) {
-                                    input.value = preset[key];
-                                }
-                            });
-                        }
-                    });
-                }
-
                 // Update URL preview when slug changes
                 var slugInput = document.getElementById('synthload_endpoint_slug');
                 var urlPreview = document.getElementById('synthload_url_preview');
@@ -280,9 +239,6 @@ class SynthLoad_Admin {
                         var config = JSON.parse(importText);
 
                         // Apply values to form fields
-                        if (config.profile && ['general', 'membership', 'ecommerce'].indexOf(config.profile) !== -1) {
-                            $('#synthload_profile').val(config.profile);
-                        }
                         if (typeof config.read_query_count !== 'undefined') {
                             $('#synthload_read_query_count').val(parseInt(config.read_query_count, 10) || 100);
                         }
@@ -312,7 +268,6 @@ class SynthLoad_Admin {
                 // Function to update export config from current form values
                 function updateExportConfig() {
                     var exportConfig = {
-                        profile: $('#synthload_profile').val(),
                         read_query_count: parseInt($('#synthload_read_query_count').val(), 10) || 100,
                         write_op_count: parseInt($('#synthload_write_op_count').val(), 10) || 5,
                         cpu_iterations: parseInt($('#synthload_cpu_iterations').val(), 10) || 100,
@@ -322,7 +277,7 @@ class SynthLoad_Admin {
                 }
 
                 // Keep export config in sync when form values change
-                $('#synthload_profile, #synthload_read_query_count, #synthload_write_op_count, #synthload_cpu_iterations, #synthload_bypass_object_cache').on('change input', updateExportConfig);
+                $('#synthload_read_query_count, #synthload_write_op_count, #synthload_cpu_iterations, #synthload_bypass_object_cache').on('change input', updateExportConfig);
 
                 // Test workload button handler
                 $('#synthload_test_btn').on('click', function(e) {
@@ -482,7 +437,7 @@ class SynthLoad_Admin {
         $test_settings = array(
             'read_query_count'      => isset( $_POST['read_query_count'] ) ? (int) $_POST['read_query_count'] : 100,
             'write_op_count'        => isset( $_POST['write_op_count'] ) ? (int) $_POST['write_op_count'] : 5,
-            'cpu_iterations'        => isset( $_POST['cpu_iterations'] ) ? (int) $_POST['cpu_iterations'] : 100000,
+            'cpu_iterations'        => isset( $_POST['cpu_iterations'] ) ? (int) $_POST['cpu_iterations'] : 100,
             'bypass_object_cache'   => isset( $_POST['bypass_object_cache'] ) && 'true' === $_POST['bypass_object_cache'],
             'debug_logging_enabled' => false, // Don't log during tests
         );

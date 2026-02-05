@@ -32,7 +32,6 @@ class SynthLoad_Settings {
         'endpoint_slug'         => 'synthload',
         'endpoint_enabled'      => true,
         'access_token'          => '',
-        'profile'               => 'general',
         'read_query_count'      => 100,
         'write_op_count'        => 5,
         'cpu_iterations'        => 100, // Stored in thousands (100 = 100,000 iterations)
@@ -176,18 +175,6 @@ class SynthLoad_Settings {
         // Access token - sanitize text
         if ( isset( $input['access_token'] ) ) {
             $sanitized['access_token'] = sanitize_text_field( $input['access_token'] );
-        }
-
-        // Profile - must be one of allowed values
-        if ( isset( $input['profile'] ) ) {
-            $allowed_profiles = array( 'general', 'membership', 'ecommerce' );
-            $profile          = sanitize_text_field( $input['profile'] );
-
-            if ( in_array( $profile, $allowed_profiles, true ) ) {
-                $sanitized['profile'] = $profile;
-            } else {
-                $sanitized['profile'] = self::$defaults['profile'];
-            }
         }
 
         // Read query count - integer, clamped to limits

@@ -119,37 +119,6 @@ $limits = SynthLoad_Settings::get_hard_limits();
             </table>
         </div>
 
-        <!-- Workload Profile Section -->
-        <div class="synthload-section">
-            <h2><?php esc_html_e( 'Workload Profile', 'wp-synthload' ); ?></h2>
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row">
-                        <label for="synthload_profile"><?php esc_html_e( 'Profile', 'wp-synthload' ); ?></label>
-                    </th>
-                    <td>
-                        <select id="synthload_profile" name="profile">
-                            <option value="general" <?php selected( $settings['profile'], 'general' ); ?>>
-                                <?php esc_html_e( 'General WP Page Load', 'wp-synthload' ); ?>
-                            </option>
-                            <option value="membership" <?php selected( $settings['profile'], 'membership' ); ?>>
-                                <?php esc_html_e( 'Membership-style (heavier reads)', 'wp-synthload' ); ?>
-                            </option>
-                            <option value="ecommerce" <?php selected( $settings['profile'], 'ecommerce' ); ?>>
-                                <?php esc_html_e( 'E-commerce-style (reads + writes)', 'wp-synthload' ); ?>
-                            </option>
-                        </select>
-                        <button type="button" id="synthload_load_preset" class="button">
-                            <?php esc_html_e( 'Load Profile Defaults', 'wp-synthload' ); ?>
-                        </button>
-                        <p class="description">
-                            <?php esc_html_e( 'Select a preset profile, then click "Load Profile Defaults" to populate parameters.', 'wp-synthload' ); ?>
-                        </p>
-                    </td>
-                </tr>
-            </table>
-        </div>
-
         <!-- Workload Parameters Section -->
         <div class="synthload-section">
             <h2><?php esc_html_e( 'Workload Parameters', 'wp-synthload' ); ?></h2>
@@ -325,7 +294,6 @@ $limits = SynthLoad_Settings::get_hard_limits();
             <?php
             // Build exportable config (workload settings only)
             $export_config = array(
-                'profile'             => $settings['profile'],
                 'read_query_count'    => $settings['read_query_count'],
                 'write_op_count'      => $settings['write_op_count'],
                 'cpu_iterations'      => $settings['cpu_iterations'],
