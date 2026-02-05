@@ -46,16 +46,34 @@ class SynthLoad_Admin {
             wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'wp-synthload' ) );
         }
 
-        // Handle form submission
-        if ( isset( $_POST['synthload_save_settings'] ) ) {
-            $this->handle_form_submit();
-        }
-
         // Get current settings
         $settings = SynthLoad_Settings::get_all();
 
         // Include the view
         include SYNTHLOAD_PLUGIN_DIR . 'admin/views/settings-page.php';
+    }
+
+    /**
+     * Process form submission early (on admin_init) before output starts.
+     */
+    public function process_form_submission(): void {
+        // Only process on our settings page
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        if ( ! isset( $_GET['page'] ) || 'synthload-settings' !== $_GET['page'] ) {
+            return;
+        }
+
+        // Only process POST requests with our submit button
+        if ( ! isset( $_POST['synthload_save_settings'] ) ) {
+            return;
+        }
+
+        // Check permissions
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+
+        $this->handle_form_submit();
     }
 
     /**

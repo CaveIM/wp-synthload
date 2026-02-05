@@ -107,6 +107,7 @@ add_action( 'plugins_loaded', function () {
     if ( is_admin() ) {
         $admin = new SynthLoad_Admin();
         add_action( 'admin_menu', array( $admin, 'add_menu_page' ) );
+        add_action( 'admin_init', array( $admin, 'process_form_submission' ), 5 ); // Early priority for redirect
         add_action( 'admin_init', array( $admin, 'register_settings' ) );
         add_action( 'admin_enqueue_scripts', array( $admin, 'enqueue_assets' ) );
 
