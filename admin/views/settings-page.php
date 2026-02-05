@@ -261,6 +261,44 @@ $limits = SynthLoad_Settings::get_hard_limits();
             </table>
         </div>
 
+        <!-- Test Workload Section -->
+        <div class="synthload-section">
+            <h2><?php esc_html_e( 'Test Workload', 'wp-synthload' ); ?></h2>
+            <p class="description" style="margin-bottom: 15px;">
+                <?php esc_html_e( 'Run a single workload request using the current form settings (without saving).', 'wp-synthload' ); ?>
+            </p>
+            <button type="button" id="synthload_test_btn" class="button button-secondary">
+                <?php esc_html_e( 'Run Test', 'wp-synthload' ); ?>
+            </button>
+            <span id="synthload_test_spinner" class="spinner" style="float: none; margin-top: 0;"></span>
+            <div id="synthload_test_results" style="display: none; margin-top: 15px;">
+                <table class="widefat striped" style="max-width: 400px;">
+                    <tbody>
+                        <tr>
+                            <td><strong><?php esc_html_e( 'Duration', 'wp-synthload' ); ?></strong></td>
+                            <td id="synthload_result_duration">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php esc_html_e( 'Database Reads', 'wp-synthload' ); ?></strong></td>
+                            <td id="synthload_result_reads">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php esc_html_e( 'Database Writes', 'wp-synthload' ); ?></strong></td>
+                            <td id="synthload_result_writes">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php esc_html_e( 'CPU Iterations', 'wp-synthload' ); ?></strong></td>
+                            <td id="synthload_result_cpu">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="synthload_test_error" class="notice notice-error inline" style="display: none; margin-top: 15px;">
+                <p id="synthload_test_error_msg"></p>
+            </div>
+            <?php wp_nonce_field( 'synthload_test_workload', 'synthload_test_nonce' ); ?>
+        </div>
+
         <!-- Debug Settings Section -->
         <div class="synthload-section">
             <h2><?php esc_html_e( 'Debug Settings', 'wp-synthload' ); ?></h2>

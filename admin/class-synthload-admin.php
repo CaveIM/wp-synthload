@@ -174,6 +174,13 @@ class SynthLoad_Admin {
                 color: #666;
                 font-size: 12px;
             }
+            #synthload_test_results td {
+                padding: 8px 12px;
+            }
+            #synthload_test_results td:last-child {
+                font-family: monospace;
+                text-align: right;
+            }
         ';
 
         wp_add_inline_style( 'common', $css );
@@ -198,10 +205,11 @@ class SynthLoad_Admin {
         );
 
         $script = "
-        (function() {
+        (function($) {
             var synthloadPresets = " . wp_json_encode( $presets ) . ";
+            var ajaxUrl = '" . esc_js( admin_url( 'admin-ajax.php' ) ) . "';
 
-            document.addEventListener('DOMContentLoaded', function() {
+            $(document).ready(function() {
                 var loadPresetBtn = document.getElementById('synthload_load_preset');
 
                 if (loadPresetBtn) {
@@ -232,8 +240,56 @@ class SynthLoad_Admin {
                         urlPreview.textContent = baseUrl + this.value + '/';
                     });
                 }
+
+                // Test workload button handler
+                $('#synthload_test_btn').on('click', function(e) {
+                    e.preventDefault();
+
+                    var btn = $(this);
+                    var spinner = $('#synthload_test_spinner');
+                    var results = $('#synthload_test_results');
+                    var errorBox = $('#synthload_test_error');
+
+                    // Disable button and show spinner
+                    btn.prop('disabled', true);
+                    spinner.addClass('is-active');
+                    results.hide();
+                    errorBox.hide();
+
+                    // Gather current form values
+                    var data = {
+                        action: 'synthload_test_workload',
+                        nonce: $('#synthload_test_nonce').val(),
+                        read_query_count: $('#synthload_read_query_count').val(),
+                        write_op_count: $('#synthload_write_op_count').val(),
+                        cpu_iterations: $('#synthload_cpu_iterations').val(),
+                        bypass_object_cache: $('#synthload_bypass_object_cache').is(':checked') ? 'true' : 'false',
+                        randomize_workload: $('#synthload_randomize_workload').is(':checked') ? 'true' : 'false'
+                    };
+
+                    $.post(ajaxUrl, data, function(response) {
+                        spinner.removeClass('is-active');
+                        btn.prop('disabled', false);
+
+                        if (response.success) {
+                            $('#synthload_result_duration').text(response.data.duration_ms + ' ms');
+                            $('#synthload_result_reads').text(response.data.db_reads.toLocaleString());
+                            $('#synthload_result_writes').text(response.data.db_writes.toLocaleString());
+                            $('#synthload_result_cpu').text(response.data.cpu_iterations.toLocaleString());
+                            results.show();
+                        } else {
+                            $('#synthload_test_error_msg').text(response.data.message || 'Test failed.');
+                            errorBox.show();
+                        }
+                    }).fail(function(xhr) {
+                        spinner.removeClass('is-active');
+                        btn.prop('disabled', false);
+                        $('#synthload_test_error_msg').text('Request failed: ' + xhr.statusText);
+                        errorBox.show();
+                    });
+                });
             });
-        })();
+        })(jQuery);
         ";
 
         wp_add_inline_script( 'jquery', $script );
@@ -321,5 +377,54 @@ class SynthLoad_Admin {
      */
     public static function get_loaderio_filepath( string $token_id ): string {
         return ABSPATH . 'loaderio-' . $token_id . '.txt';
+    }
+
+    /**
+     * Handle AJAX test workload request.
+     *
+     * Executes a workload with the provided form settings and returns results.
+     */
+    public static function ajax_test_workload(): void {
+        // Verify nonce
+        if ( ! isset( $_POST['nonce'] ) ||
+             ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'synthload_test_workload' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Security check failed.', 'wp-synthload' ) ), 403 );
+        }
+
+        // Check permissions
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Permission denied.', 'wp-synthload' ) ), 403 );
+        }
+
+        // Build settings from POST data
+        $test_settings = array(
+            'read_query_count'      => isset( $_POST['read_query_count'] ) ? (int) $_POST['read_query_count'] : 100,
+            'write_op_count'        => isset( $_POST['write_op_count'] ) ? (int) $_POST['write_op_count'] : 5,
+            'cpu_iterations'        => isset( $_POST['cpu_iterations'] ) ? (int) $_POST['cpu_iterations'] : 100000,
+            'bypass_object_cache'   => isset( $_POST['bypass_object_cache'] ) && 'true' === $_POST['bypass_object_cache'],
+            'randomize_workload'    => isset( $_POST['randomize_workload'] ) && 'true' === $_POST['randomize_workload'],
+            'debug_logging_enabled' => false, // Don't log during tests
+        );
+
+        // Sanitize through settings class to enforce limits
+        $test_settings = SynthLoad_Settings::sanitize( $test_settings );
+
+        // Merge with defaults for any missing keys
+        $test_settings = array_merge( SynthLoad_Settings::get_defaults(), $test_settings );
+
+        // Execute workload
+        global $wpdb;
+        $db       = new SynthLoad_Db( $wpdb );
+        $workload = new SynthLoad_Workload( $db, $test_settings );
+        $result   = $workload->execute();
+
+        // Return results
+        wp_send_json_success( array(
+            'duration_ms'    => $result['execution']['duration_ms'],
+            'db_reads'       => $result['execution']['db_reads'],
+            'db_writes'      => $result['execution']['db_writes'],
+            'cpu_iterations' => $result['execution']['cpu_iterations'],
+            'request_id'     => $result['request_id'],
+        ) );
     }
 }
