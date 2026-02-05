@@ -135,6 +135,23 @@ class SynthLoad_Admin {
                 'error'
             );
         }
+
+        // Redirect back to the same tab
+        $tab = isset( $_POST['synthload_tab'] ) ? sanitize_key( $_POST['synthload_tab'] ) : 'workload';
+        $redirect_url = add_query_arg(
+            array(
+                'page'             => 'synthload-settings',
+                'tab'              => $tab,
+                'settings-updated' => 'true',
+            ),
+            admin_url( 'options-general.php' )
+        );
+
+        // Store settings errors in transient so they persist through redirect
+        set_transient( 'settings_errors', get_settings_errors(), 30 );
+
+        wp_safe_redirect( $redirect_url );
+        exit;
     }
 
     /**
@@ -149,6 +166,9 @@ class SynthLoad_Admin {
 
         // Inline CSS for styling
         $css = '
+            .nav-tab-wrapper {
+                margin-bottom: 20px;
+            }
             .synthload-url-preview {
                 background: #f0f0f1;
                 padding: 10px;
