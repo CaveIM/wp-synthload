@@ -434,14 +434,29 @@ class SynthLoad_Workload {
             return;
         }
 
-        // Split: 60% INSERT, 30% UPDATE, 10% DELETE
-        $insert_count = (int) ceil( $count * 0.6 );
-        $update_count = (int) ceil( $count * 0.3 );
-        $delete_count = $count - $insert_count - $update_count;
+        // Check if deletes will be skipped (table not at 80% capacity)
+        $max_rows      = $limits['max_rows_to_keep'];
+        $current_count = $this->db->count_events();
+        $can_delete    = $current_count >= ( $max_rows * 0.8 );
+
+        if ( $can_delete ) {
+            // Split: 60% INSERT, 30% UPDATE, 10% DELETE
+            $insert_count = (int) ceil( $count * 0.6 );
+            $update_count = (int) ceil( $count * 0.3 );
+            $delete_count = $count - $insert_count - $update_count;
+        } else {
+            // No deletes - redistribute to inserts and updates (65% / 35%)
+            $insert_count = (int) ceil( $count * 0.65 );
+            $update_count = $count - $insert_count;
+            $delete_count = 0;
+        }
 
         $this->perform_inserts( $insert_count );
         $this->perform_updates( $update_count );
-        $this->perform_deletes( max( 0, $delete_count ) );
+
+        if ( $delete_count > 0 ) {
+            $this->perform_deletes( $delete_count );
+        }
     }
 
     /**
@@ -543,24 +558,16 @@ class SynthLoad_Workload {
     /**
      * Perform DELETE operations.
      *
+     * Only called when table is at 80%+ capacity (checked in perform_writes).
+     *
      * @param int $count Number of deletes to perform.
      */
     private function perform_deletes( int $count ): void {
-        $limits        = SynthLoad_Settings::get_hard_limits();
-        $max_rows      = $limits['max_rows_to_keep'];
-        $current_count = $this->db->count_events();
-
-        // Only delete if we're over 80% of max
-        if ( $current_count < ( $max_rows * 0.8 ) ) {
-            $this->log_operation( 'write', 'delete_skipped', array(
-                'reason'        => 'below_threshold',
-                'current_count' => $current_count,
-                'threshold'     => (int) ( $max_rows * 0.8 ),
-            ) );
+        if ( $count < 1 ) {
             return;
         }
 
-        // Limit cleanup per request
+        // Limit cleanup per request to prevent long-running deletes
         $delete_limit = min( $count, 100 );
         $deleted      = $this->db->cleanup_old_events( 3600, $delete_limit );
 
