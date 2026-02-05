@@ -842,10 +842,9 @@ class SynthLoad_Admin {
                 // Advanced settings inputs - use event delegation for hidden elements
                 $(document).on('input change', '#calc_pages_per_visit, #calc_cache_hit_rate, #calc_connections_per_vcpu, #calc_peak_to_average_ratio, #calc_flash_spike_percent', calculateCapacity);
 
-                // Initial setup
+                // Initial setup - just run calculation with saved values (don't apply preset)
                 if ($('#calc_traffic_count').length) {
-                    // Apply initial preset based on dropdown
-                    applyPreset($('#calc_site_type').val());
+                    calculateCapacity();
                 }
             });
         })(jQuery);
