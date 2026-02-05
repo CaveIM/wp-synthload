@@ -154,65 +154,73 @@ class SynthLoad_Workload {
      * @param int $count Number of reads to perform.
      */
     private function perform_wp_reads( int $count ): void {
+        global $wpdb;
+
         $bypass_cache = $this->settings['bypass_object_cache'];
 
-        // Common options to read
-        $options = array( 'blogname', 'blogdescription', 'siteurl', 'home', 'admin_email', 'users_can_register', 'date_format', 'time_format' );
+        // Get pool of random option names, post IDs, and user IDs for this request
+        $option_names = $this->get_random_option_names( max( 20, (int) ceil( $count / 3 ) ) );
+        $post_ids     = $this->get_random_post_ids( max( 20, (int) ceil( $count / 3 ) ) );
+        $user_ids     = $this->get_random_user_ids( max( 10, (int) ceil( $count / 6 ) ) );
 
         for ( $i = 0; $i < $count; $i++ ) {
             $operation = $i % 3;
 
             switch ( $operation ) {
                 case 0:
-                    // Read an option
-                    $option_key = $options[ array_rand( $options ) ];
-                    $value      = get_option( $option_key );
-                    $this->log_operation( 'read', 'get_option', array(
-                        'option' => $option_key,
-                        'found'  => false !== $value,
-                    ) );
-                    break;
-
-                case 1:
-                    // Query posts
-                    $args = array(
-                        'post_type'      => 'post',
-                        'posts_per_page' => 5,
-                        'orderby'        => 'rand',
-                        'no_found_rows'  => true,
-                    );
-
-                    if ( $bypass_cache ) {
-                        $args['cache_results']          = false;
-                        $args['update_post_meta_cache'] = false;
-                        $args['update_post_term_cache'] = false;
-                    }
-
-                    $posts = get_posts( $args );
-                    $this->log_operation( 'read', 'get_posts', array(
-                        'post_type'    => 'post',
-                        'count'        => count( $posts ),
-                        'bypass_cache' => $bypass_cache,
-                    ) );
-                    break;
-
-                case 2:
-                    // Query users (cache-friendly)
-                    if ( ! $bypass_cache ) {
-                        $users = get_users( array(
-                            'number' => 3,
-                            'fields' => 'ID',
-                        ) );
-                        $this->log_operation( 'read', 'get_users', array(
-                            'count' => count( $users ),
-                        ) );
-                    } else {
-                        // Fall back to option read when bypassing cache
-                        $option_key = $options[ array_rand( $options ) ];
+                    // Read a random option
+                    if ( ! empty( $option_names ) ) {
+                        $option_key = $option_names[ array_rand( $option_names ) ];
                         $value      = get_option( $option_key );
                         $this->log_operation( 'read', 'get_option', array(
                             'option' => $option_key,
                             'found'  => false !== $value,
+                        ) );
+                    }
+                    break;
+
+                case 1:
+                    // Query posts by random IDs (avoids expensive ORDER BY RAND())
+                    if ( ! empty( $post_ids ) ) {
+                        $random_ids = array_slice( $post_ids, 0, min( 5, count( $post_ids ) ) );
+                        shuffle( $post_ids ); // Shuffle for next iteration
+
+                        $args = array(
+                            'post_type'      => 'any',
+                            'post__in'       => $random_ids,
+                            'posts_per_page' => count( $random_ids ),
+                            'no_found_rows'  => true,
+                            'orderby'        => 'post__in',
+                        );
+
+                        if ( $bypass_cache ) {
+                            $args['cache_results']          = false;
+                            $args['update_post_meta_cache'] = false;
+                            $args['update_post_term_cache'] = false;
+                        }
+
+                        $posts = get_posts( $args );
+                        $this->log_operation( 'read', 'get_posts', array(
+                            'post_ids'     => $random_ids,
+                            'count'        => count( $posts ),
+                            'bypass_cache' => $bypass_cache,
+                        ) );
+                    }
+                    break;
+
+                case 2:
+                    // Query random users
+                    if ( ! empty( $user_ids ) ) {
+                        $random_user_ids = array_slice( $user_ids, 0, min( 3, count( $user_ids ) ) );
+                        shuffle( $user_ids ); // Shuffle for next iteration
+
+                        $users = get_users( array(
+                            'include' => $random_user_ids,
+                            'fields'  => 'ID',
+                        ) );
+                        $this->log_operation( 'read', 'get_users', array(
+                            'user_ids' => $random_user_ids,
+                            'count'    => count( $users ),
                         ) );
                     }
                     break;
@@ -224,6 +232,135 @@ class SynthLoad_Workload {
     }
 
     /**
+     * Get random option names from the database.
+     *
+     * @param int $limit Maximum number of option names to return.
+     * @return array Array of option names.
+     */
+    private function get_random_option_names( int $limit ): array {
+        global $wpdb;
+
+        // Use a random offset to get different options each request
+        $total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->options}" );
+        if ( $total < 1 ) {
+            return array();
+        }
+
+        $offset = random_int( 0, max( 0, $total - $limit ) );
+
+        $names = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT option_name FROM {$wpdb->options} LIMIT %d OFFSET %d",
+                $limit,
+                $offset
+            )
+        );
+
+        return $names ?: array();
+    }
+
+    /**
+     * Get random post IDs from the database.
+     *
+     * @param int $limit Maximum number of post IDs to return.
+     * @return array Array of post IDs.
+     */
+    private function get_random_post_ids( int $limit ): array {
+        global $wpdb;
+
+        // Use a random offset instead of ORDER BY RAND() for better performance
+        $total = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'publish'"
+        );
+        if ( $total < 1 ) {
+            return array();
+        }
+
+        $offset = random_int( 0, max( 0, $total - $limit ) );
+
+        $ids = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts} WHERE post_status = 'publish' LIMIT %d OFFSET %d",
+                $limit,
+                $offset
+            )
+        );
+
+        // Shuffle to randomize order
+        if ( $ids ) {
+            shuffle( $ids );
+        }
+
+        return $ids ?: array();
+    }
+
+    /**
+     * Get random user IDs from the database.
+     *
+     * @param int $limit Maximum number of user IDs to return.
+     * @return array Array of user IDs.
+     */
+    private function get_random_user_ids( int $limit ): array {
+        global $wpdb;
+
+        // Use a random offset
+        $total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users}" );
+        if ( $total < 1 ) {
+            return array();
+        }
+
+        $offset = random_int( 0, max( 0, $total - $limit ) );
+
+        $ids = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT ID FROM {$wpdb->users} LIMIT %d OFFSET %d",
+                $limit,
+                $offset
+            )
+        );
+
+        // Shuffle to randomize order
+        if ( $ids ) {
+            shuffle( $ids );
+        }
+
+        return $ids ?: array();
+    }
+
+    /**
+     * Get random option IDs from the database.
+     *
+     * @param int $limit Maximum number of option IDs to return.
+     * @return array Array of option IDs.
+     */
+    private function get_random_option_ids( int $limit ): array {
+        global $wpdb;
+
+        // Use a random offset
+        $total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->options}" );
+        if ( $total < 1 ) {
+            return array();
+        }
+
+        $offset = random_int( 0, max( 0, $total - $limit ) );
+
+        $ids = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT option_id FROM {$wpdb->options} LIMIT %d OFFSET %d",
+                $limit,
+                $offset
+            )
+        );
+
+        // Shuffle to randomize order
+        if ( $ids ) {
+            shuffle( $ids );
+        }
+
+        return $ids ?: array();
+    }
+
+    /**
      * Perform direct SQL reads.
      *
      * @param int $count Number of reads to perform.
@@ -231,22 +368,30 @@ class SynthLoad_Workload {
     private function perform_direct_reads( int $count ): void {
         global $wpdb;
 
+        // Get random IDs upfront for efficient querying
+        $post_ids   = $this->get_random_post_ids( max( 20, (int) ceil( $count / 3 ) ) );
+        $option_ids = $this->get_random_option_ids( max( 20, (int) ceil( $count / 3 ) ) );
+
         for ( $i = 0; $i < $count; $i++ ) {
             $operation = $i % 3;
 
             switch ( $operation ) {
                 case 0:
-                    // Read from posts table
-                    $posts = $wpdb->get_results(
-                        $wpdb->prepare(
-                            "SELECT ID, post_title FROM {$wpdb->posts} WHERE post_status = 'publish' ORDER BY RAND() LIMIT %d",
-                            3
-                        )
-                    );
-                    $this->log_operation( 'read', 'direct_sql_posts', array(
-                        'table' => $wpdb->posts,
-                        'count' => count( $posts ),
-                    ) );
+                    // Read from posts table using random IDs
+                    if ( ! empty( $post_ids ) ) {
+                        $random_ids = array_slice( $post_ids, 0, min( 3, count( $post_ids ) ) );
+                        shuffle( $post_ids );
+
+                        $ids_placeholder = implode( ',', array_map( 'intval', $random_ids ) );
+                        $posts           = $wpdb->get_results(
+                            "SELECT ID, post_title, post_content FROM {$wpdb->posts} WHERE ID IN ({$ids_placeholder})"
+                        );
+                        $this->log_operation( 'read', 'direct_sql_posts', array(
+                            'table'    => $wpdb->posts,
+                            'post_ids' => $random_ids,
+                            'count'    => count( $posts ),
+                        ) );
+                    }
                     break;
 
                 case 1:
@@ -259,17 +404,21 @@ class SynthLoad_Workload {
                     break;
 
                 case 2:
-                    // Read from options table
-                    $options = $wpdb->get_results(
-                        $wpdb->prepare(
-                            "SELECT option_name, option_value FROM {$wpdb->options} WHERE autoload = 'yes' LIMIT %d",
-                            10
-                        )
-                    );
-                    $this->log_operation( 'read', 'direct_sql_options', array(
-                        'table' => $wpdb->options,
-                        'count' => count( $options ),
-                    ) );
+                    // Read from options table using random option IDs
+                    if ( ! empty( $option_ids ) ) {
+                        $random_ids = array_slice( $option_ids, 0, min( 10, count( $option_ids ) ) );
+                        shuffle( $option_ids );
+
+                        $ids_placeholder = implode( ',', array_map( 'intval', $random_ids ) );
+                        $options         = $wpdb->get_results(
+                            "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_id IN ({$ids_placeholder})"
+                        );
+                        $this->log_operation( 'read', 'direct_sql_options', array(
+                            'table'      => $wpdb->options,
+                            'option_ids' => $random_ids,
+                            'count'      => count( $options ),
+                        ) );
+                    }
                     break;
             }
 
@@ -316,14 +465,10 @@ class SynthLoad_Workload {
      */
     private function perform_inserts( int $count ): void {
         for ( $i = 0; $i < $count; $i++ ) {
-            $payload = wp_json_encode( array(
-                'timestamp'  => gmdate( 'c' ),
-                'request_id' => $this->request_id,
-                'iteration'  => $i,
-                'random'     => wp_generate_password( 16, false ),
-            ) );
+            // Generate varied random payload sizes and content
+            $payload = wp_json_encode( $this->generate_random_payload( $i ) );
 
-            $event_request_id = $this->request_id . '-' . $i;
+            $event_request_id = $this->request_id . '-' . $i . '-' . wp_generate_password( 8, false );
             $insert_id        = $this->db->insert_event( array(
                 'request_id' => $event_request_id,
                 'payload'    => $payload,
@@ -341,6 +486,28 @@ class SynthLoad_Workload {
     }
 
     /**
+     * Generate a random payload with varying size and content.
+     *
+     * @param int $iteration The current iteration number.
+     * @return array Random payload data.
+     */
+    private function generate_random_payload( int $iteration ): array {
+        // Vary payload size randomly
+        $extra_data_size = random_int( 50, 500 );
+
+        return array(
+            'timestamp'   => gmdate( 'c' ),
+            'microtime'   => microtime( true ),
+            'request_id'  => $this->request_id,
+            'iteration'   => $iteration,
+            'random_key'  => wp_generate_password( 32, false ),
+            'random_int'  => random_int( 1, 1000000 ),
+            'random_hash' => hash( 'sha256', uniqid( '', true ) . random_int( 0, PHP_INT_MAX ) ),
+            'extra_data'  => wp_generate_password( $extra_data_size, false ),
+        );
+    }
+
+    /**
      * Perform UPDATE operations.
      *
      * @param int $count Number of updates to perform.
@@ -355,11 +522,18 @@ class SynthLoad_Workload {
         // Get random events to update
         $events = $this->db->read_random_events( $count );
 
+        $update_index = 0;
         foreach ( $events as $event ) {
+            // Generate varied update payload
             $new_payload = wp_json_encode( array(
-                'updated_at' => gmdate( 'c' ),
-                'updated_by' => $this->request_id,
+                'updated_at'  => gmdate( 'c' ),
+                'microtime'   => microtime( true ),
+                'updated_by'  => $this->request_id,
+                'update_key'  => wp_generate_password( 24, false ),
+                'random_val'  => random_int( 1, 999999 ),
+                'extra_data'  => wp_generate_password( random_int( 100, 300 ), false ),
             ) );
+            ++$update_index;
 
             $rows_affected = $wpdb->update(
                 $this->db->get_table_name(),
