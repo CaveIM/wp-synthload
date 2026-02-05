@@ -347,24 +347,46 @@ class SynthLoad_Admin {
                 font-size: 12px;
             }
             /* Traffic shape mini charts */
+            .synthload-shape-options {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
             .synthload-shape-option {
                 display: flex;
                 align-items: center;
-                gap: 12px;
-                margin-bottom: 10px;
+                gap: 16px;
+                padding: 12px 16px;
+                background: #f9f9f9;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                cursor: pointer;
+                transition: border-color 0.2s ease, background 0.2s ease;
             }
-            .synthload-shape-option:last-child {
-                margin-bottom: 0;
+            .synthload-shape-option:hover {
+                border-color: #c3c4c7;
+                background: #f6f7f7;
+            }
+            .synthload-shape-option:has(input:checked) {
+                border-color: #2271b1;
+                background: #f0f6fc;
+            }
+            .synthload-shape-option input[type="radio"] {
+                margin: 0;
+            }
+            .synthload-shape-option > span:first-of-type {
+                flex: 1;
             }
             .synthload-shape-chart {
                 display: flex;
                 align-items: flex-end;
                 gap: 2px;
-                height: 24px;
-                padding: 2px 4px;
-                background: #f6f7f7;
-                border-radius: 3px;
-                min-width: 60px;
+                height: 28px;
+                padding: 4px 6px;
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                min-width: 70px;
             }
             .synthload-shape-bar {
                 width: 4px;

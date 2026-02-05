@@ -305,7 +305,7 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                     <tr>
                         <th scope="row"><?php esc_html_e( 'Traffic Shape', 'wp-synthload' ); ?></th>
                         <td>
-                            <fieldset>
+                            <fieldset class="synthload-shape-options">
                                 <label class="synthload-shape-option">
                                     <input type="radio" name="calc_traffic_shape" value="uniform" checked />
                                     <span><?php esc_html_e( 'Uniform (spread evenly 24/7)', 'wp-synthload' ); ?></span>
