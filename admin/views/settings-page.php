@@ -227,30 +227,19 @@ $limits = SynthLoad_Settings::get_hard_limits();
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e( 'Cache Behavior', 'wp-synthload' ); ?></th>
+                    <th scope="row"><?php esc_html_e( 'Cache Bypass', 'wp-synthload' ); ?></th>
                     <td>
-                        <fieldset>
-                            <label for="synthload_use_object_cache">
-                                <input type="checkbox"
-                                       id="synthload_use_object_cache"
-                                       name="use_object_cache"
-                                       value="1"
-                                       <?php checked( $settings['use_object_cache'] ); ?> />
-                                <?php esc_html_e( 'Use cache-friendly operations', 'wp-synthload' ); ?>
-                            </label>
-                            <br>
-                            <label for="synthload_bypass_object_cache">
-                                <input type="checkbox"
-                                       id="synthload_bypass_object_cache"
-                                       name="bypass_object_cache"
-                                       value="1"
-                                       <?php checked( $settings['bypass_object_cache'] ); ?> />
-                                <?php esc_html_e( 'Bypass object cache when possible', 'wp-synthload' ); ?>
-                            </label>
-                            <p class="description">
-                                <?php esc_html_e( 'Control whether workload benefits from or bypasses object caching.', 'wp-synthload' ); ?>
-                            </p>
-                        </fieldset>
+                        <label for="synthload_bypass_object_cache">
+                            <input type="checkbox"
+                                   id="synthload_bypass_object_cache"
+                                   name="bypass_object_cache"
+                                   value="1"
+                                   <?php checked( $settings['bypass_object_cache'] ); ?> />
+                            <?php esc_html_e( 'Force direct database queries', 'wp-synthload' ); ?>
+                        </label>
+                        <p class="description">
+                            <?php esc_html_e( 'Skip object cache (Redis/Memcached) and query the database directly. Simulates uncached traffic.', 'wp-synthload' ); ?>
+                        </p>
                     </td>
                 </tr>
                 <tr>

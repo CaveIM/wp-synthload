@@ -36,7 +36,6 @@ class SynthLoad_Settings {
         'read_query_count'      => 100,
         'write_op_count'        => 5,
         'cpu_iterations'        => 100000,
-        'use_object_cache'      => true,
         'bypass_object_cache'   => false,
         'randomize_workload'    => true,
         'debug_logging_enabled' => false,
@@ -210,11 +209,7 @@ class SynthLoad_Settings {
             $sanitized['cpu_iterations'] = self::clamp( $iterations, 1000, $limits['max_cpu_iterations'] );
         }
 
-        // Cache-related booleans
-        if ( isset( $input['use_object_cache'] ) ) {
-            $sanitized['use_object_cache'] = self::to_bool( $input['use_object_cache'] );
-        }
-
+        // Cache bypass - boolean
         if ( isset( $input['bypass_object_cache'] ) ) {
             $sanitized['bypass_object_cache'] = self::to_bool( $input['bypass_object_cache'] );
         }

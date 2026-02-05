@@ -89,7 +89,6 @@ class SynthLoad_Admin {
             'read_query_count'      => isset( $_POST['read_query_count'] ) ? (int) $_POST['read_query_count'] : 100,
             'write_op_count'        => isset( $_POST['write_op_count'] ) ? (int) $_POST['write_op_count'] : 5,
             'cpu_iterations'        => isset( $_POST['cpu_iterations'] ) ? (int) $_POST['cpu_iterations'] : 100000,
-            'use_object_cache'      => isset( $_POST['use_object_cache'] ) ? true : false,
             'bypass_object_cache'   => isset( $_POST['bypass_object_cache'] ) ? true : false,
             'randomize_workload'    => isset( $_POST['randomize_workload'] ) ? true : false,
             'debug_logging_enabled' => isset( $_POST['debug_logging_enabled'] ) ? true : false,
