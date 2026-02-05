@@ -44,6 +44,7 @@ class SynthLoad_Calculator {
 			'connections_per_vcpu'  => 2,
 			'peak_to_average_ratio' => 2.5,
 			'flash_spike_percent'   => 15,
+			'response_time_ms'      => 2500,
 		),
 		'static'  => array(
 			'label'                 => 'Static/Cached (blogs, landing pages)',
@@ -52,6 +53,7 @@ class SynthLoad_Calculator {
 			'connections_per_vcpu'  => 8,
 			'peak_to_average_ratio' => 2.0,
 			'flash_spike_percent'   => 10,
+			'response_time_ms'      => 300,
 		),
 	);
 

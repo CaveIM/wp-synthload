@@ -543,14 +543,16 @@ class SynthLoad_Admin {
                         cacheHitRate: 30,
                         connectionsPerVcpu: 2,
                         peakToAverageRatio: 2.5,
-                        flashSpikePercent: 15
+                        flashSpikePercent: 15,
+                        responseTime: 2500
                     },
                     static: {
                         pagesPerVisit: 2,
                         cacheHitRate: 85,
                         connectionsPerVcpu: 8,
                         peakToAverageRatio: 2.0,
-                        flashSpikePercent: 10
+                        flashSpikePercent: 10,
+                        responseTime: 300
                     }
                 };
 
@@ -570,6 +572,7 @@ class SynthLoad_Admin {
                     $('#calc_connections_per_vcpu').val(preset.connectionsPerVcpu);
                     $('#calc_peak_to_average_ratio').val(preset.peakToAverageRatio);
                     $('#calc_flash_spike_percent').val(preset.flashSpikePercent);
+                    $('#calc_response_time').val(preset.responseTime);
                     // Update working defaults
                     calcDefaults = Object.assign({}, preset);
                     calculateCapacity();

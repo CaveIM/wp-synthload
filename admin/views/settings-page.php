@@ -294,7 +294,7 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                         <td>
                             <input type="number"
                                    id="calc_response_time"
-                                   value="500"
+                                   value="2500"
                                    min="50"
                                    max="30000"
                                    step="50"
