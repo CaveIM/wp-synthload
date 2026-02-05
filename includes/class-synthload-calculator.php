@@ -19,16 +19,40 @@ if ( ! defined( 'ABSPATH' ) ) {
 class SynthLoad_Calculator {
 
 	/**
-	 * Default assumption values.
+	 * Default assumption values (for dynamic sites).
 	 *
 	 * @var array
 	 */
 	const DEFAULTS = array(
-		'pages_per_visit'       => 3,
-		'cache_hit_rate'        => 70,    // Percentage (0-100).
-		'connections_per_vcpu'  => 45,    // Optimized hosting baseline.
+		'pages_per_visit'       => 5,
+		'cache_hit_rate'        => 30,    // Percentage (0-100). Low for dynamic sites.
+		'connections_per_vcpu'  => 2,     // PHP-FPM workers per vCPU for dynamic sites.
 		'peak_to_average_ratio' => 2.5,   // For business hours traffic.
 		'flash_spike_percent'   => 15,    // Percentage of monthly traffic in spike hour.
+	);
+
+	/**
+	 * Site type presets.
+	 *
+	 * @var array
+	 */
+	const PRESETS = array(
+		'dynamic' => array(
+			'label'                 => 'Dynamic (e-commerce, membership, forums)',
+			'pages_per_visit'       => 5,
+			'cache_hit_rate'        => 30,
+			'connections_per_vcpu'  => 2,
+			'peak_to_average_ratio' => 2.5,
+			'flash_spike_percent'   => 15,
+		),
+		'static'  => array(
+			'label'                 => 'Static/Cached (blogs, landing pages)',
+			'pages_per_visit'       => 2,
+			'cache_hit_rate'        => 85,
+			'connections_per_vcpu'  => 8,
+			'peak_to_average_ratio' => 2.0,
+			'flash_spike_percent'   => 10,
+		),
 	);
 
 	/**
@@ -60,6 +84,28 @@ class SynthLoad_Calculator {
 	 * @return array Default assumptions.
 	 */
 	public static function get_defaults(): array {
+		return self::DEFAULTS;
+	}
+
+	/**
+	 * Get site type presets.
+	 *
+	 * @return array Presets with assumption values.
+	 */
+	public static function get_presets(): array {
+		return self::PRESETS;
+	}
+
+	/**
+	 * Get a specific preset by key.
+	 *
+	 * @param string $preset_key The preset key (dynamic, static).
+	 * @return array Preset values or defaults if not found.
+	 */
+	public static function get_preset( string $preset_key ): array {
+		if ( isset( self::PRESETS[ $preset_key ] ) ) {
+			return self::PRESETS[ $preset_key ];
+		}
 		return self::DEFAULTS;
 	}
 

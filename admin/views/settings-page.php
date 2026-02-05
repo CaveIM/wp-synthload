@@ -243,17 +243,46 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                 <table class="form-table" role="presentation">
                     <tr>
                         <th scope="row">
-                            <label for="calc_monthly_visitors"><?php esc_html_e( 'Monthly Visitors', 'wp-synthload' ); ?></label>
+                            <label for="calc_site_type"><?php esc_html_e( 'Site Type', 'wp-synthload' ); ?></label>
+                        </th>
+                        <td>
+                            <select id="calc_site_type" class="regular-text">
+                                <option value="dynamic"><?php esc_html_e( 'Dynamic (e-commerce, membership, forums)', 'wp-synthload' ); ?></option>
+                                <option value="static"><?php esc_html_e( 'Static/Cached (blogs, landing pages, marketing)', 'wp-synthload' ); ?></option>
+                            </select>
+                            <p class="description">
+                                <?php esc_html_e( 'Loads recommended assumptions for your site type.', 'wp-synthload' ); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Traffic Input', 'wp-synthload' ); ?></th>
+                        <td>
+                            <fieldset>
+                                <label style="display: inline-block; margin-right: 20px;">
+                                    <input type="radio" name="calc_input_type" value="visitors" checked />
+                                    <?php esc_html_e( 'Monthly Visitors', 'wp-synthload' ); ?>
+                                </label>
+                                <label style="display: inline-block;">
+                                    <input type="radio" name="calc_input_type" value="pageviews" />
+                                    <?php esc_html_e( 'Monthly Page Views', 'wp-synthload' ); ?>
+                                </label>
+                            </fieldset>
+                        </td>
+                    </tr>
+                    <tr id="calc_traffic_row">
+                        <th scope="row">
+                            <label for="calc_traffic_count" id="calc_traffic_label"><?php esc_html_e( 'Monthly Visitors', 'wp-synthload' ); ?></label>
                         </th>
                         <td>
                             <input type="number"
-                                   id="calc_monthly_visitors"
+                                   id="calc_traffic_count"
                                    value="100000"
                                    min="0"
                                    max="100000000"
                                    step="1000"
                                    class="regular-text" />
-                            <p class="description">
+                            <p class="description" id="calc_traffic_desc">
                                 <?php esc_html_e( 'Expected unique visitors per month.', 'wp-synthload' ); ?>
                             </p>
                         </td>

@@ -37,10 +37,10 @@ class SynthLoad_Settings {
         'cpu_iterations'             => 100, // Stored in thousands (100 = 100,000 iterations)
         'bypass_object_cache'        => false,
         'debug_logging_enabled'      => false,
-        // Calculator assumptions.
-        'calc_pages_per_visit'       => 3,
-        'calc_cache_hit_rate'        => 70,   // Percentage (0-100).
-        'calc_connections_per_vcpu'  => 45,   // Optimized hosting baseline.
+        // Calculator assumptions (defaults for dynamic sites).
+        'calc_pages_per_visit'       => 5,
+        'calc_cache_hit_rate'        => 30,   // Percentage (0-100). Low for dynamic sites.
+        'calc_connections_per_vcpu'  => 2,    // PHP-FPM workers per vCPU for dynamic sites.
         'calc_peak_to_average_ratio' => 2.5,  // For business hours traffic.
         'calc_flash_spike_percent'   => 15,   // Percentage of monthly traffic in spike.
     );

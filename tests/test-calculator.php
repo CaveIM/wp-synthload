@@ -14,15 +14,15 @@ class Test_Calculator extends WP_UnitTestCase {
 	 * Test uniform traffic RPS calculation.
 	 */
 	public function test_uniform_traffic_rps(): void {
-		// 1 million visitors, 3 pages each, 70% cached
-		// = 3M page views * 0.3 = 900,000 requests / month
-		// = 900,000 / (30 * 24 * 3600) = 0.347 RPS.
+		// 1 million visitors, 5 pages each (default), 30% cached (default)
+		// = 5M page views * 0.7 = 3,500,000 requests / month
+		// = 3,500,000 / (30 * 24 * 3600) = 1.35 RPS.
 		$rps = SynthLoad_Calculator::calculate_peak_rps(
 			1000000,
 			'uniform'
 		);
 
-		$this->assertEqualsWithDelta( 0.35, $rps, 0.05 );
+		$this->assertEqualsWithDelta( 1.35, $rps, 0.1 );
 	}
 
 	/**
@@ -79,9 +79,9 @@ class Test_Calculator extends WP_UnitTestCase {
 	 * Test vCPU calculation with safety factor.
 	 */
 	public function test_vcpu_with_safety_factor(): void {
-		// 90 concurrent connections / 45 per vCPU = 2.
+		// 4 concurrent connections / 2 per vCPU = 2.
 		// With 1.5x safety = 3 vCPUs.
-		$vcpus = SynthLoad_Calculator::calculate_vcpus( 90.0, 1.5 );
+		$vcpus = SynthLoad_Calculator::calculate_vcpus( 4.0, 1.5 );
 
 		$this->assertEquals( 3, $vcpus );
 	}
@@ -90,8 +90,8 @@ class Test_Calculator extends WP_UnitTestCase {
 	 * Test vCPU calculation without safety factor.
 	 */
 	public function test_vcpu_without_safety_factor(): void {
-		// 90 concurrent connections / 45 per vCPU = 2 vCPUs.
-		$vcpus = SynthLoad_Calculator::calculate_vcpus( 90.0, 1.0 );
+		// 4 concurrent connections / 2 per vCPU = 2 vCPUs.
+		$vcpus = SynthLoad_Calculator::calculate_vcpus( 4.0, 1.0 );
 
 		$this->assertEquals( 2, $vcpus );
 	}
@@ -100,8 +100,8 @@ class Test_Calculator extends WP_UnitTestCase {
 	 * Test vCPU rounds up.
 	 */
 	public function test_vcpu_rounds_up(): void {
-		// 50 concurrent / 45 = 1.11, rounded up = 2.
-		$vcpus = SynthLoad_Calculator::calculate_vcpus( 50.0, 1.0 );
+		// 3 concurrent / 2 = 1.5, rounded up = 2.
+		$vcpus = SynthLoad_Calculator::calculate_vcpus( 3.0, 1.0 );
 
 		$this->assertEquals( 2, $vcpus );
 	}
@@ -144,11 +144,11 @@ class Test_Calculator extends WP_UnitTestCase {
 			1.5
 		);
 
-		// 100k visitors * 3 pages = 300k page views.
-		$this->assertEquals( 300000, $result['results']['monthly_page_views'] );
+		// 100k visitors * 5 pages (default) = 500k page views.
+		$this->assertEquals( 500000, $result['results']['monthly_page_views'] );
 
-		// 300k * 0.3 (after 70% cache) = 90k effective.
-		$this->assertEquals( 90000, $result['results']['effective_requests'] );
+		// 500k * 0.7 (after 30% cache) = 350k effective.
+		$this->assertEquals( 350000, $result['results']['effective_requests'] );
 
 		// vCPUs should be at least 1.
 		$this->assertGreaterThanOrEqual( 1, $result['results']['recommended_vcpus'] );
@@ -158,7 +158,7 @@ class Test_Calculator extends WP_UnitTestCase {
 	 * Test custom assumptions override defaults.
 	 */
 	public function test_custom_assumptions(): void {
-		$custom = array( 'pages_per_visit' => 5 );
+		$custom = array( 'pages_per_visit' => 10 ); // Double the default of 5.
 
 		$result_default = SynthLoad_Calculator::get_full_calculation(
 			100000,
@@ -305,6 +305,90 @@ class Test_Calculator extends WP_UnitTestCase {
 		$this->assertGreaterThanOrEqual(
 			$business['results']['recommended_vcpus'],
 			$flash_sale['results']['recommended_vcpus']
+		);
+	}
+
+	/**
+	 * Test get_presets returns expected site types.
+	 */
+	public function test_get_presets(): void {
+		$presets = SynthLoad_Calculator::get_presets();
+
+		$this->assertArrayHasKey( 'dynamic', $presets );
+		$this->assertArrayHasKey( 'static', $presets );
+	}
+
+	/**
+	 * Test dynamic preset has lower connections per vCPU than static.
+	 */
+	public function test_dynamic_preset_lower_connections_per_vcpu(): void {
+		$presets = SynthLoad_Calculator::get_presets();
+
+		$this->assertLessThan(
+			$presets['static']['connections_per_vcpu'],
+			$presets['dynamic']['connections_per_vcpu']
+		);
+	}
+
+	/**
+	 * Test static preset has higher cache hit rate than dynamic.
+	 */
+	public function test_static_preset_higher_cache_rate(): void {
+		$presets = SynthLoad_Calculator::get_presets();
+
+		$this->assertGreaterThan(
+			$presets['dynamic']['cache_hit_rate'],
+			$presets['static']['cache_hit_rate']
+		);
+	}
+
+	/**
+	 * Test get_preset returns correct preset.
+	 */
+	public function test_get_preset(): void {
+		$dynamic = SynthLoad_Calculator::get_preset( 'dynamic' );
+		$static  = SynthLoad_Calculator::get_preset( 'static' );
+
+		$this->assertEquals( 2, $dynamic['connections_per_vcpu'] );
+		$this->assertEquals( 8, $static['connections_per_vcpu'] );
+	}
+
+	/**
+	 * Test get_preset returns defaults for unknown preset.
+	 */
+	public function test_get_preset_unknown_returns_defaults(): void {
+		$unknown  = SynthLoad_Calculator::get_preset( 'unknown' );
+		$defaults = SynthLoad_Calculator::get_defaults();
+
+		$this->assertEquals( $defaults['connections_per_vcpu'], $unknown['connections_per_vcpu'] );
+	}
+
+	/**
+	 * Test static site needs fewer vCPUs than dynamic for same traffic.
+	 */
+	public function test_static_needs_fewer_vcpus_than_dynamic(): void {
+		$presets = SynthLoad_Calculator::get_presets();
+
+		$dynamic_result = SynthLoad_Calculator::get_full_calculation(
+			100000,
+			500,
+			'uniform',
+			1.5,
+			$presets['dynamic']
+		);
+
+		$static_result = SynthLoad_Calculator::get_full_calculation(
+			100000,
+			500,
+			'uniform',
+			1.5,
+			$presets['static']
+		);
+
+		// Static site with better caching should need fewer vCPUs.
+		$this->assertLessThanOrEqual(
+			$dynamic_result['results']['recommended_vcpus'],
+			$static_result['results']['recommended_vcpus']
 		);
 	}
 }

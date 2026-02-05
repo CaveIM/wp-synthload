@@ -205,9 +205,11 @@ class SynthLoad_Admin {
             self::delete_loaderio_file( $old_token_id );
         }
 
-        // Write new file if token exists
+        // Write new file only if token exists and file doesn't already exist
         if ( ! empty( $new_token_id ) ) {
-            if ( self::write_loaderio_file( $new_token_id ) ) {
+            if ( self::loaderio_file_exists( $new_token_id ) ) {
+                // File already exists, no message needed.
+            } elseif ( self::write_loaderio_file( $new_token_id ) ) {
                 $file_message = ' ' . __( 'Verification file created.', 'wp-synthload' );
             } else {
                 $file_message = ' ' . __( 'Warning: Could not create verification file. Check file permissions.', 'wp-synthload' );
@@ -535,6 +537,23 @@ class SynthLoad_Admin {
                 });
 
                 // === vCPU Calculator ===
+                var sitePresets = {
+                    dynamic: {
+                        pagesPerVisit: 5,
+                        cacheHitRate: 30,
+                        connectionsPerVcpu: 2,
+                        peakToAverageRatio: 2.5,
+                        flashSpikePercent: 15
+                    },
+                    static: {
+                        pagesPerVisit: 2,
+                        cacheHitRate: 85,
+                        connectionsPerVcpu: 8,
+                        peakToAverageRatio: 2.0,
+                        flashSpikePercent: 10
+                    }
+                };
+
                 var calcDefaults = {
                     pagesPerVisit: " . (int) $settings['calc_pages_per_visit'] . ",
                     cacheHitRate: " . (int) $settings['calc_cache_hit_rate'] . ",
@@ -543,8 +562,35 @@ class SynthLoad_Admin {
                     flashSpikePercent: " . (int) $settings['calc_flash_spike_percent'] . "
                 };
 
+                // Apply preset values to form fields
+                function applyPreset(presetKey) {
+                    var preset = sitePresets[presetKey] || sitePresets.dynamic;
+                    $('#calc_pages_per_visit').val(preset.pagesPerVisit);
+                    $('#calc_cache_hit_rate').val(preset.cacheHitRate);
+                    $('#calc_connections_per_vcpu').val(preset.connectionsPerVcpu);
+                    $('#calc_peak_to_average_ratio').val(preset.peakToAverageRatio);
+                    $('#calc_flash_spike_percent').val(preset.flashSpikePercent);
+                    // Update working defaults
+                    calcDefaults = Object.assign({}, preset);
+                    calculateCapacity();
+                }
+
+                // Handle input type toggle (visitors vs pageviews)
+                function updateInputType() {
+                    var inputType = $('input[name=\"calc_input_type\"]:checked').val();
+                    if (inputType === 'pageviews') {
+                        $('#calc_traffic_label').text('" . esc_js( __( 'Monthly Page Views', 'wp-synthload' ) ) . "');
+                        $('#calc_traffic_desc').text('" . esc_js( __( 'Total page views per month.', 'wp-synthload' ) ) . "');
+                    } else {
+                        $('#calc_traffic_label').text('" . esc_js( __( 'Monthly Visitors', 'wp-synthload' ) ) . "');
+                        $('#calc_traffic_desc').text('" . esc_js( __( 'Expected unique visitors per month.', 'wp-synthload' ) ) . "');
+                    }
+                    calculateCapacity();
+                }
+
                 function calculateCapacity() {
-                    var visitors = parseInt($('#calc_monthly_visitors').val(), 10) || 0;
+                    var trafficCount = parseInt($('#calc_traffic_count').val(), 10) || 0;
+                    var inputType = $('input[name=\"calc_input_type\"]:checked').val() || 'visitors';
                     var responseTime = parseInt($('#calc_response_time').val(), 10) || 500;
                     var trafficShape = $('input[name=\"calc_traffic_shape\"]:checked').val() || 'uniform';
                     var safetyFactor = parseFloat($('#calc_safety_factor').val()) || 1.5;
@@ -552,8 +598,16 @@ class SynthLoad_Admin {
                     // Get assumptions (use form values if advanced is open, otherwise defaults)
                     var assumptions = getAssumptions();
 
-                    // Step 1: Page views
-                    var pageViews = visitors * assumptions.pagesPerVisit;
+                    // Step 1: Page views (depends on input type)
+                    var pageViews;
+                    var visitors;
+                    if (inputType === 'pageviews') {
+                        pageViews = trafficCount;
+                        visitors = Math.round(trafficCount / assumptions.pagesPerVisit);
+                    } else {
+                        visitors = trafficCount;
+                        pageViews = trafficCount * assumptions.pagesPerVisit;
+                    }
 
                     // Step 2: Effective requests (after cache)
                     var cacheRate = assumptions.cacheHitRate / 100;
@@ -577,7 +631,7 @@ class SynthLoad_Admin {
                     // Update breakdown
                     updateBreakdown(visitors, pageViews, effectiveRequests,
                                     peakRps, concurrent, vcpus,
-                                    trafficShape, safetyFactor, assumptions, responseTime);
+                                    trafficShape, safetyFactor, assumptions, responseTime, inputType);
                 }
 
                 function calculatePeakRps(effectiveRequests, shape, assumptions) {
@@ -628,7 +682,6 @@ class SynthLoad_Admin {
                                    assumptions.peakToAverageRatio + ' peak ratio = ' + rps.toFixed(2) + ' RPS';
                         case 'flash_sale':
                             var spikePercent = assumptions.flashSpikePercent;
-                            var spikeRequests = effective * (spikePercent / 100);
                             return Math.round(effective).toLocaleString() + ' × ' + spikePercent + '% / 3600s = ' + rps.toFixed(2) + ' RPS';
                         default:
                             return Math.round(effective).toLocaleString() + ' / (30d × 24h × 3600s) = ' + rps.toFixed(2) + ' RPS';
@@ -636,12 +689,18 @@ class SynthLoad_Admin {
                 }
 
                 function updateBreakdown(visitors, pageViews, effective, rps, concurrent,
-                                         vcpus, shape, safety, assumptions, responseTime) {
+                                         vcpus, shape, safety, assumptions, responseTime, inputType) {
                     var html = '';
 
-                    html += '<p><strong>Step 1: Monthly page views</strong><br>';
-                    html += '<code>' + visitors.toLocaleString() + ' visitors × ' + assumptions.pagesPerVisit;
-                    html += ' pages/visit = ' + pageViews.toLocaleString() + ' page views</code></p>';
+                    // Step 1 depends on input type
+                    if (inputType === 'pageviews') {
+                        html += '<p><strong>Step 1: Monthly page views (direct input)</strong><br>';
+                        html += '<code>' + pageViews.toLocaleString() + ' page views</code></p>';
+                    } else {
+                        html += '<p><strong>Step 1: Monthly page views</strong><br>';
+                        html += '<code>' + visitors.toLocaleString() + ' visitors × ' + assumptions.pagesPerVisit;
+                        html += ' pages/visit = ' + pageViews.toLocaleString() + ' page views</code></p>';
+                    }
 
                     html += '<p><strong>Step 2: Effective requests (after ' +
                             assumptions.cacheHitRate + '% cache)</strong><br>';
@@ -663,8 +722,16 @@ class SynthLoad_Admin {
                     $('#calc_breakdown').html(html);
                 }
 
+                // Site type preset change
+                $('#calc_site_type').on('change', function() {
+                    applyPreset($(this).val());
+                });
+
+                // Input type toggle
+                $('input[name=\"calc_input_type\"]').on('change', updateInputType);
+
                 // Bind calculator events
-                $('#calc_monthly_visitors, #calc_response_time, #calc_safety_factor').on('input change', calculateCapacity);
+                $('#calc_traffic_count, #calc_response_time, #calc_safety_factor').on('input change', calculateCapacity);
                 $('input[name=\"calc_traffic_shape\"]').on('change', calculateCapacity);
 
                 // Advanced settings toggle
@@ -677,9 +744,10 @@ class SynthLoad_Admin {
                 $('#calc_pages_per_visit, #calc_cache_hit_rate, #calc_connections_per_vcpu, ' +
                   '#calc_peak_to_average_ratio, #calc_flash_spike_percent').on('input change', calculateCapacity);
 
-                // Initial calculation
-                if ($('#calc_monthly_visitors').length) {
-                    calculateCapacity();
+                // Initial setup
+                if ($('#calc_traffic_count').length) {
+                    // Apply initial preset based on dropdown
+                    applyPreset($('#calc_site_type').val());
                 }
             });
         })(jQuery);
