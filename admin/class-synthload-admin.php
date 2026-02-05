@@ -198,9 +198,8 @@ class SynthLoad_Admin {
         $tab = isset( $_POST['synthload_tab'] ) ? sanitize_key( $_POST['synthload_tab'] ) : 'workload';
         $redirect_url = add_query_arg(
             array(
-                'page'             => 'synthload-settings',
-                'tab'              => $tab,
-                'settings-updated' => 'true',
+                'page' => 'synthload-settings',
+                'tab'  => $tab,
             ),
             admin_url( 'options-general.php' )
         );
