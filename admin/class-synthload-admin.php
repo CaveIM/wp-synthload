@@ -157,49 +157,42 @@ class SynthLoad_Admin {
             $new_settings['bypass_object_cache'] = isset( $_POST['bypass_object_cache'] );
         }
 
-        // Update settings
-        $updated = SynthLoad_Settings::update( $new_settings );
+        // Update settings (returns false if no changes or error)
+        SynthLoad_Settings::update( $new_settings );
 
-        if ( $updated ) {
-            // Check if slug changed - flush rewrite rules if so
-            $current_settings = SynthLoad_Settings::get_all();
-            if ( $old_slug !== $current_settings['endpoint_slug'] ) {
-                SynthLoad_Router::register_rewrites();
-                flush_rewrite_rules();
-            }
+        // Get updated settings for comparison
+        $current_settings = SynthLoad_Settings::get_all();
 
-            // Handle Loader.io verification file
-            $new_token_id  = SynthLoad_Settings::extract_token_id( $current_settings['loaderio_token'] );
-            $file_message  = '';
-
-            // Delete old file if token changed
-            if ( $old_token_id !== $new_token_id && ! empty( $old_token_id ) ) {
-                self::delete_loaderio_file( $old_token_id );
-            }
-
-            // Write new file if token exists
-            if ( ! empty( $new_token_id ) ) {
-                if ( self::write_loaderio_file( $new_token_id ) ) {
-                    $file_message = ' ' . __( 'Verification file created.', 'wp-synthload' );
-                } else {
-                    $file_message = ' ' . __( 'Warning: Could not create verification file. Check file permissions.', 'wp-synthload' );
-                }
-            }
-
-            add_settings_error(
-                'synthload_settings',
-                'settings_updated',
-                __( 'Settings saved successfully.', 'wp-synthload' ) . $file_message,
-                'success'
-            );
-        } else {
-            add_settings_error(
-                'synthload_settings',
-                'settings_error',
-                __( 'Failed to save settings. Please try again.', 'wp-synthload' ),
-                'error'
-            );
+        // Check if slug changed - flush rewrite rules if so
+        if ( $old_slug !== $current_settings['endpoint_slug'] ) {
+            SynthLoad_Router::register_rewrites();
+            flush_rewrite_rules();
         }
+
+        // Handle Loader.io verification file
+        $new_token_id = SynthLoad_Settings::extract_token_id( $current_settings['loaderio_token'] );
+        $file_message = '';
+
+        // Delete old file if token changed
+        if ( $old_token_id !== $new_token_id && ! empty( $old_token_id ) ) {
+            self::delete_loaderio_file( $old_token_id );
+        }
+
+        // Write new file if token exists
+        if ( ! empty( $new_token_id ) ) {
+            if ( self::write_loaderio_file( $new_token_id ) ) {
+                $file_message = ' ' . __( 'Verification file created.', 'wp-synthload' );
+            } else {
+                $file_message = ' ' . __( 'Warning: Could not create verification file. Check file permissions.', 'wp-synthload' );
+            }
+        }
+
+        add_settings_error(
+            'synthload_settings',
+            'settings_updated',
+            __( 'Settings saved.', 'wp-synthload' ) . $file_message,
+            'success'
+        );
 
         // Redirect back to the same tab
         $tab = isset( $_POST['synthload_tab'] ) ? sanitize_key( $_POST['synthload_tab'] ) : 'workload';
