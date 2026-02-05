@@ -129,13 +129,6 @@ class SynthLoad_Workload {
         // Apply hard limit
         $count = min( $count, $limits['max_read_query_count'] );
 
-        // Apply randomization
-        if ( $this->settings['randomize_workload'] && $count > 0 ) {
-            $variance = max( 1, (int) ( $count * 0.1 ) ); // 10% variance
-            $count    = $this->random_in_range( $count - $variance, $count + $variance );
-            $count    = min( $count, $limits['max_read_query_count'] );
-        }
-
         if ( $count < 1 ) {
             return;
         }
@@ -437,13 +430,6 @@ class SynthLoad_Workload {
         // Apply hard limit
         $count = min( $count, $limits['max_write_op_count'] );
 
-        // Apply randomization
-        if ( $this->settings['randomize_workload'] && $count > 0 ) {
-            $variance = max( 1, (int) ( $count * 0.1 ) );
-            $count    = $this->random_in_range( $count - $variance, $count + $variance );
-            $count    = min( $count, $limits['max_write_op_count'] );
-        }
-
         if ( $count < 1 ) {
             return;
         }
@@ -602,13 +588,6 @@ class SynthLoad_Workload {
         // Apply hard limit
         $iterations = min( $iterations, $limits['max_cpu_iterations'] );
 
-        // Apply randomization (10% variance)
-        if ( $this->settings['randomize_workload'] && $iterations > 0 ) {
-            $variance   = max( 100, (int) ( $iterations * 0.1 ) );
-            $iterations = $this->random_in_range( $iterations - $variance, $iterations + $variance );
-            $iterations = min( $iterations, $limits['max_cpu_iterations'] );
-        }
-
         if ( $iterations < 1 ) {
             return;
         }
@@ -684,23 +663,6 @@ class SynthLoad_Workload {
      */
     private function get_elapsed_ms(): int {
         return (int) ( ( microtime( true ) - $this->start_time ) * 1000 );
-    }
-
-    /**
-     * Generate random integer in range.
-     *
-     * @param int $min Minimum value.
-     * @param int $max Maximum value.
-     * @return int Random value.
-     */
-    private function random_in_range( int $min, int $max ): int {
-        if ( $min > $max ) {
-            $temp = $min;
-            $min  = $max;
-            $max  = $temp;
-        }
-
-        return random_int( $min, $max );
     }
 
     /**

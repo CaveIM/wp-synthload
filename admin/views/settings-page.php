@@ -242,22 +242,6 @@ $limits = SynthLoad_Settings::get_hard_limits();
                         </p>
                     </td>
                 </tr>
-                <tr>
-                    <th scope="row"><?php esc_html_e( 'Randomization', 'wp-synthload' ); ?></th>
-                    <td>
-                        <label for="synthload_randomize_workload">
-                            <input type="checkbox"
-                                   id="synthload_randomize_workload"
-                                   name="randomize_workload"
-                                   value="1"
-                                   <?php checked( $settings['randomize_workload'] ); ?> />
-                            <?php esc_html_e( 'Randomize workload parameters', 'wp-synthload' ); ?>
-                        </label>
-                        <p class="description">
-                            <?php esc_html_e( 'Adds variation to reads, writes, and duration to prevent caching artifacts.', 'wp-synthload' ); ?>
-                        </p>
-                    </td>
-                </tr>
             </table>
         </div>
 

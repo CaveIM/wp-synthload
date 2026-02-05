@@ -90,7 +90,6 @@ class SynthLoad_Admin {
             'write_op_count'        => isset( $_POST['write_op_count'] ) ? (int) $_POST['write_op_count'] : 5,
             'cpu_iterations'        => isset( $_POST['cpu_iterations'] ) ? (int) $_POST['cpu_iterations'] : 100000,
             'bypass_object_cache'   => isset( $_POST['bypass_object_cache'] ) ? true : false,
-            'randomize_workload'    => isset( $_POST['randomize_workload'] ) ? true : false,
             'debug_logging_enabled' => isset( $_POST['debug_logging_enabled'] ) ? true : false,
         );
 
@@ -263,8 +262,7 @@ class SynthLoad_Admin {
                         read_query_count: $('#synthload_read_query_count').val(),
                         write_op_count: $('#synthload_write_op_count').val(),
                         cpu_iterations: $('#synthload_cpu_iterations').val(),
-                        bypass_object_cache: $('#synthload_bypass_object_cache').is(':checked') ? 'true' : 'false',
-                        randomize_workload: $('#synthload_randomize_workload').is(':checked') ? 'true' : 'false'
+                        bypass_object_cache: $('#synthload_bypass_object_cache').is(':checked') ? 'true' : 'false'
                     };
 
                     $.post(ajaxUrl, data, function(response) {
@@ -402,7 +400,6 @@ class SynthLoad_Admin {
             'write_op_count'        => isset( $_POST['write_op_count'] ) ? (int) $_POST['write_op_count'] : 5,
             'cpu_iterations'        => isset( $_POST['cpu_iterations'] ) ? (int) $_POST['cpu_iterations'] : 100000,
             'bypass_object_cache'   => isset( $_POST['bypass_object_cache'] ) && 'true' === $_POST['bypass_object_cache'],
-            'randomize_workload'    => isset( $_POST['randomize_workload'] ) && 'true' === $_POST['randomize_workload'],
             'debug_logging_enabled' => false, // Don't log during tests
         );
 

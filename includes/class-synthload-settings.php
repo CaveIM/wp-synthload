@@ -37,7 +37,6 @@ class SynthLoad_Settings {
         'write_op_count'        => 5,
         'cpu_iterations'        => 100000,
         'bypass_object_cache'   => false,
-        'randomize_workload'    => true,
         'debug_logging_enabled' => false,
     );
 
@@ -212,11 +211,6 @@ class SynthLoad_Settings {
         // Cache bypass - boolean
         if ( isset( $input['bypass_object_cache'] ) ) {
             $sanitized['bypass_object_cache'] = self::to_bool( $input['bypass_object_cache'] );
-        }
-
-        // Randomize workload - boolean
-        if ( isset( $input['randomize_workload'] ) ) {
-            $sanitized['randomize_workload'] = self::to_bool( $input['randomize_workload'] );
         }
 
         // Debug logging - boolean
