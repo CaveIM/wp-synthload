@@ -60,6 +60,13 @@ class SynthLoad_Workload {
     private int $writes_performed = 0;
 
     /**
+     * Number of CPU iterations performed.
+     *
+     * @var int
+     */
+    private int $cpu_iterations_performed = 0;
+
+    /**
      * Whether cache was hit.
      *
      * @var bool
@@ -93,73 +100,23 @@ class SynthLoad_Workload {
     public function execute(): array {
         $this->start_time = microtime( true );
 
-        // Check execution time limit
-        $limits        = SynthLoad_Settings::get_hard_limits();
-        $max_execution = $limits['max_total_duration_ms'] / 1000;
-        $php_limit     = (int) ini_get( 'max_execution_time' );
+        $this->log_debug( "Starting workload. Request ID: {$this->request_id}" );
 
-        if ( $php_limit > 0 && $php_limit < ( $max_execution + 5 ) ) {
-            return array(
-                'status'    => 'error',
-                'message'   => 'Insufficient execution time limit',
-                'execution' => array(
-                    'duration_ms' => 0,
-                    'target_ms'   => 0,
-                    'db_reads'    => 0,
-                    'db_writes'   => 0,
-                    'cache_hit'   => false,
-                ),
-            );
-        }
-
-        // Calculate target duration
-        $target_duration = $this->calculate_target_duration();
-
-        $this->log_debug( "Starting workload. Request ID: {$this->request_id}, Target: {$target_duration}ms" );
-
-        // Perform reads
+        // Perform database reads
         $this->perform_reads();
 
-        // Perform writes
+        // Perform database writes
         $this->perform_writes();
 
-        // Calculate elapsed time
-        $elapsed_ms = $this->get_elapsed_ms();
-
-        // Burn remaining time if needed
-        if ( $elapsed_ms < $target_duration ) {
-            $this->burn_remaining_time( $target_duration, $elapsed_ms );
-        }
+        // Perform CPU work
+        $this->perform_cpu_work();
 
         // Calculate final elapsed time
         $final_elapsed = $this->get_elapsed_ms();
 
-        $this->log_debug( "Workload complete. Reads: {$this->reads_performed}, Writes: {$this->writes_performed}, Duration: {$final_elapsed}ms" );
+        $this->log_debug( "Workload complete. Reads: {$this->reads_performed}, Writes: {$this->writes_performed}, CPU iterations: {$this->cpu_iterations_performed}, Duration: {$final_elapsed}ms" );
 
-        return $this->build_response( $target_duration );
-    }
-
-    /**
-     * Calculate target duration with jitter.
-     *
-     * @return int Target duration in milliseconds.
-     */
-    private function calculate_target_duration(): int {
-        $target = (int) $this->settings['target_duration_ms'];
-        $jitter = (int) $this->settings['duration_jitter_ms'];
-        $limits = SynthLoad_Settings::get_hard_limits();
-
-        // Apply hard limit
-        $target = min( $target, $limits['max_total_duration_ms'] );
-
-        // Apply jitter if randomization enabled
-        if ( $this->settings['randomize_workload'] && $jitter > 0 ) {
-            $variation = $this->random_in_range( -$jitter, $jitter );
-            $target   += $variation;
-        }
-
-        // Ensure minimum of 100ms
-        return max( 100, $target );
+        return $this->build_response();
     }
 
     /**
@@ -458,51 +415,57 @@ class SynthLoad_Workload {
     }
 
     /**
-     * Burn remaining time with CPU work.
+     * Perform CPU-intensive work.
      *
-     * @param int $target_ms  Target duration in milliseconds.
-     * @param int $elapsed_ms Already elapsed time in milliseconds.
+     * Executes a fixed number of hash operations to generate consistent CPU load.
+     * The actual time taken depends on server CPU performance, making this
+     * useful for comparing server capabilities under load.
      */
-    private function burn_remaining_time( int $target_ms, int $elapsed_ms ): void {
-        $remaining_ms = $target_ms - $elapsed_ms;
+    private function perform_cpu_work(): void {
+        $iterations = (int) $this->settings['cpu_iterations'];
+        $limits     = SynthLoad_Settings::get_hard_limits();
 
-        if ( $remaining_ms <= 0 ) {
+        // Apply hard limit
+        $iterations = min( $iterations, $limits['max_cpu_iterations'] );
+
+        // Apply randomization (10% variance)
+        if ( $this->settings['randomize_workload'] && $iterations > 0 ) {
+            $variance   = max( 100, (int) ( $iterations * 0.1 ) );
+            $iterations = $this->random_in_range( $iterations - $variance, $iterations + $variance );
+            $iterations = min( $iterations, $limits['max_cpu_iterations'] );
+        }
+
+        if ( $iterations < 1 ) {
             return;
         }
 
-        $burn_start = $this->get_elapsed_ms();
-        $end_time   = microtime( true ) + ( $remaining_ms / 1000 );
-        $counter    = 0;
+        $cpu_start = $this->get_elapsed_ms();
 
-        // CPU-intensive operations to burn time
-        while ( microtime( true ) < $end_time ) {
-            // Mix of operations to keep CPU busy
+        // CPU-intensive operations: hash computations
+        for ( $i = 0; $i < $iterations; $i++ ) {
             $data = str_repeat( 'x', 1000 );
-            $hash = hash( 'sha256', $data . $counter );
-            wp_json_encode( array( 'hash' => $hash, 'counter' => $counter ) );
+            $hash = hash( 'sha256', $data . $i );
 
-            ++$counter;
-
-            // Check time every 100 iterations
-            if ( 0 === $counter % 100 && microtime( true ) >= $end_time ) {
-                break;
+            // Prevent optimizer from eliminating the work
+            if ( 0 === $i % 10000 ) {
+                wp_json_encode( array( 'hash' => $hash, 'iteration' => $i ) );
             }
         }
 
-        $this->log_operation( 'cpu', 'burn_time', array(
-            'target_burn_ms' => $remaining_ms,
-            'actual_burn_ms' => $this->get_elapsed_ms() - $burn_start,
-            'iterations'     => $counter,
+        $this->cpu_iterations_performed = $iterations;
+
+        $this->log_operation( 'cpu', 'hash_work', array(
+            'iterations'  => $iterations,
+            'duration_ms' => $this->get_elapsed_ms() - $cpu_start,
         ) );
     }
 
     /**
      * Build response payload.
      *
-     * @param int $target_ms Target duration used.
      * @return array Response array.
      */
-    private function build_response( int $target_ms ): array {
+    private function build_response(): array {
         $duration_ms = $this->get_elapsed_ms();
 
         return array(
@@ -510,11 +473,11 @@ class SynthLoad_Workload {
             'timestamp'  => gmdate( 'c' ),
             'request_id' => $this->request_id,
             'execution'  => array(
-                'duration_ms' => $duration_ms,
-                'target_ms'   => $target_ms,
-                'db_reads'    => $this->reads_performed,
-                'db_writes'   => $this->writes_performed,
-                'cache_hit'   => $this->cache_hit,
+                'duration_ms'    => $duration_ms,
+                'db_reads'       => $this->reads_performed,
+                'db_writes'      => $this->writes_performed,
+                'cpu_iterations' => $this->cpu_iterations_performed,
+                'cache_hit'      => $this->cache_hit,
             ),
             'operations' => $this->operations,
             'server'     => array(

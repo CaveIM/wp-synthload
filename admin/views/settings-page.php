@@ -204,43 +204,25 @@ $limits = SynthLoad_Settings::get_hard_limits();
                 </tr>
                 <tr>
                     <th scope="row">
-                        <label for="synthload_target_duration_ms"><?php esc_html_e( 'Target Duration (ms)', 'wp-synthload' ); ?></label>
+                        <label for="synthload_cpu_iterations"><?php esc_html_e( 'CPU Iterations', 'wp-synthload' ); ?></label>
                     </th>
                     <td>
                         <input type="number"
-                               id="synthload_target_duration_ms"
-                               name="target_duration_ms"
-                               value="<?php echo esc_attr( $settings['target_duration_ms'] ); ?>"
-                               min="100"
-                               max="<?php echo esc_attr( $limits['max_total_duration_ms'] ); ?>"
-                               step="100"
-                               class="small-text" />
+                               id="synthload_cpu_iterations"
+                               name="cpu_iterations"
+                               value="<?php echo esc_attr( $settings['cpu_iterations'] ); ?>"
+                               min="1000"
+                               max="<?php echo esc_attr( $limits['max_cpu_iterations'] ); ?>"
+                               step="1000"
+                               class="regular-text" />
                         <p class="description">
                             <?php
                             printf(
-                                /* translators: %d: maximum duration */
-                                esc_html__( 'Target execution time in milliseconds (max: %d).', 'wp-synthload' ),
-                                $limits['max_total_duration_ms']
+                                /* translators: %s: maximum CPU iterations */
+                                esc_html__( 'Number of hash operations per request (max: %s). Higher values = more CPU work.', 'wp-synthload' ),
+                                number_format( $limits['max_cpu_iterations'] )
                             );
                             ?>
-                        </p>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">
-                        <label for="synthload_duration_jitter_ms"><?php esc_html_e( 'Duration Jitter (ms)', 'wp-synthload' ); ?></label>
-                    </th>
-                    <td>
-                        <input type="number"
-                               id="synthload_duration_jitter_ms"
-                               name="duration_jitter_ms"
-                               value="<?php echo esc_attr( $settings['duration_jitter_ms'] ); ?>"
-                               min="0"
-                               max="5000"
-                               step="50"
-                               class="small-text" />
-                        <p class="description">
-                            <?php esc_html_e( 'Random variation in target duration (+/- this value).', 'wp-synthload' ); ?>
                         </p>
                     </td>
                 </tr>
@@ -323,9 +305,9 @@ $limits = SynthLoad_Settings::get_hard_limits();
                 <li>
                     <?php
                     printf(
-                        /* translators: %d: max duration */
-                        esc_html__( 'Maximum duration: %d ms', 'wp-synthload' ),
-                        $limits['max_total_duration_ms']
+                        /* translators: %s: max CPU iterations */
+                        esc_html__( 'Maximum CPU iterations: %s', 'wp-synthload' ),
+                        number_format( $limits['max_cpu_iterations'] )
                     );
                     ?>
                 </li>

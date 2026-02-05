@@ -35,8 +35,7 @@ class SynthLoad_Settings {
         'profile'               => 'general',
         'read_query_count'      => 100,
         'write_op_count'        => 5,
-        'target_duration_ms'    => 3000,
-        'duration_jitter_ms'    => 750,
+        'cpu_iterations'        => 100000,
         'use_object_cache'      => true,
         'bypass_object_cache'   => false,
         'randomize_workload'    => true,
@@ -49,10 +48,10 @@ class SynthLoad_Settings {
      * @var array
      */
     private static array $hard_limits = array(
-        'max_total_duration_ms' => 15000,
-        'max_read_query_count'  => 2000,
-        'max_write_op_count'    => 200,
-        'max_rows_to_keep'      => 100000,
+        'max_cpu_iterations'   => 10000000,
+        'max_read_query_count' => 2000,
+        'max_write_op_count'   => 200,
+        'max_rows_to_keep'     => 100000,
     );
 
     /**
@@ -205,16 +204,10 @@ class SynthLoad_Settings {
             $sanitized['write_op_count'] = self::clamp( $count, 0, $limits['max_write_op_count'] );
         }
 
-        // Target duration - integer, clamped to limits (min 100ms)
-        if ( isset( $input['target_duration_ms'] ) ) {
-            $duration                        = (int) $input['target_duration_ms'];
-            $sanitized['target_duration_ms'] = self::clamp( $duration, 100, $limits['max_total_duration_ms'] );
-        }
-
-        // Duration jitter - integer, clamped (0 to 5000ms)
-        if ( isset( $input['duration_jitter_ms'] ) ) {
-            $jitter                         = (int) $input['duration_jitter_ms'];
-            $sanitized['duration_jitter_ms'] = self::clamp( $jitter, 0, 5000 );
+        // CPU iterations - integer, clamped to limits (min 1000)
+        if ( isset( $input['cpu_iterations'] ) ) {
+            $iterations                   = (int) $input['cpu_iterations'];
+            $sanitized['cpu_iterations'] = self::clamp( $iterations, 1000, $limits['max_cpu_iterations'] );
         }
 
         // Cache-related booleans
