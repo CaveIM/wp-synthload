@@ -189,10 +189,10 @@ class SynthLoad_Settings {
             $sanitized['write_op_count'] = self::clamp( $count, 0, $limits['max_write_op_count'] );
         }
 
-        // CPU iterations - integer in thousands, clamped to limits (min 1 = 1000 iterations)
+        // CPU iterations - integer in thousands, clamped to limits (0 = disabled)
         if ( isset( $input['cpu_iterations'] ) ) {
             $iterations                   = (int) $input['cpu_iterations'];
-            $sanitized['cpu_iterations'] = self::clamp( $iterations, 1, $limits['max_cpu_iterations'] );
+            $sanitized['cpu_iterations'] = self::clamp( $iterations, 0, $limits['max_cpu_iterations'] );
         }
 
         // Cache bypass - boolean
