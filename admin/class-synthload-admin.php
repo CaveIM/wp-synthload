@@ -349,19 +349,22 @@ class SynthLoad_Admin {
             /* Traffic shape mini charts */
             .synthload-shape-options {
                 display: flex;
-                flex-direction: column;
+                flex-wrap: wrap;
                 gap: 12px;
             }
             .synthload-shape-option {
                 display: flex;
-                align-items: center;
-                gap: 16px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
                 padding: 12px 16px;
                 background: #f9f9f9;
                 border: 1px solid #e0e0e0;
                 border-radius: 4px;
                 cursor: pointer;
                 transition: border-color 0.2s ease, background 0.2s ease;
+                width: calc(50% - 6px);
+                box-sizing: border-box;
             }
             .synthload-shape-option:hover {
                 border-color: #c3c4c7;
@@ -374,8 +377,10 @@ class SynthLoad_Admin {
             .synthload-shape-option input[type="radio"] {
                 margin: 0;
             }
-            .synthload-shape-option > span:first-of-type {
-                flex: 1;
+            .synthload-shape-label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
             }
             .synthload-shape-chart {
                 display: flex;
@@ -387,6 +392,7 @@ class SynthLoad_Admin {
                 border: 1px solid #e0e0e0;
                 border-radius: 4px;
                 min-width: 70px;
+                margin-top: 6px;
             }
             .synthload-shape-bar {
                 width: 4px;

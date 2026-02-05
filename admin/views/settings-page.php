@@ -307,8 +307,10 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                         <td>
                             <fieldset class="synthload-shape-options">
                                 <label class="synthload-shape-option">
-                                    <input type="radio" name="calc_traffic_shape" value="uniform" checked />
-                                    <span><?php esc_html_e( 'Uniform (spread evenly 24/7)', 'wp-synthload' ); ?></span>
+                                    <span class="synthload-shape-label">
+                                        <input type="radio" name="calc_traffic_shape" value="uniform" checked />
+                                        <span><?php esc_html_e( 'Uniform (spread evenly 24/7)', 'wp-synthload' ); ?></span>
+                                    </span>
                                     <span class="synthload-shape-chart synthload-chart-uniform">
                                         <span class="synthload-shape-bar"></span>
                                         <span class="synthload-shape-bar"></span>
@@ -325,8 +327,10 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                                     </span>
                                 </label>
                                 <label class="synthload-shape-option">
-                                    <input type="radio" name="calc_traffic_shape" value="business" />
-                                    <span><?php esc_html_e( 'Business Hours (8h workday, 22 days/month)', 'wp-synthload' ); ?></span>
+                                    <span class="synthload-shape-label">
+                                        <input type="radio" name="calc_traffic_shape" value="business" />
+                                        <span><?php esc_html_e( 'Business Hours (8h workday, 22 days/month)', 'wp-synthload' ); ?></span>
+                                    </span>
                                     <span class="synthload-shape-chart synthload-chart-business">
                                         <span class="synthload-shape-bar"></span>
                                         <span class="synthload-shape-bar"></span>
@@ -343,8 +347,10 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                                     </span>
                                 </label>
                                 <label class="synthload-shape-option">
-                                    <input type="radio" name="calc_traffic_shape" value="flash_sale" />
-                                    <span><?php esc_html_e( 'Flash Sale (spike traffic in 1 hour)', 'wp-synthload' ); ?></span>
+                                    <span class="synthload-shape-label">
+                                        <input type="radio" name="calc_traffic_shape" value="flash_sale" />
+                                        <span><?php esc_html_e( 'Flash Sale (spike traffic in 1 hour)', 'wp-synthload' ); ?></span>
+                                    </span>
                                     <span class="synthload-shape-chart synthload-chart-flash">
                                         <span class="synthload-shape-bar"></span>
                                         <span class="synthload-shape-bar"></span>
