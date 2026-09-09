@@ -595,11 +595,6 @@ class SynthLoad_Workload {
                 'cpu_iterations' => $this->cpu_iterations_performed,
                 'cache_hit'      => $this->cache_hit,
             ),
-            'operations' => $this->operations,
-            'server'     => array(
-                'php_version' => PHP_VERSION,
-                'wp_version'  => get_bloginfo( 'version' ),
-            ),
         );
     }
 

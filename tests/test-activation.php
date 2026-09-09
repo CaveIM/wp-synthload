@@ -67,9 +67,11 @@ class Test_SynthLoad_Activation extends WP_UnitTestCase {
 
         $options = get_option( SynthLoad_Settings::OPTION_NAME );
 
-        $this->assertIsArray( $options );
-        $this->assertArrayHasKey( 'endpoint_slug', $options );
-        $this->assertArrayHasKey( 'read_query_count', $options );
+		$this->assertIsArray( $options );
+		$this->assertArrayHasKey( 'endpoint_slug', $options );
+		$this->assertArrayHasKey( 'read_query_count', $options );
+		$this->assertFalse( $options['endpoint_enabled'] );
+		$this->assertSame( '', $options['access_token'] );
     }
 
     /**

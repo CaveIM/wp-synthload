@@ -150,7 +150,18 @@ class SynthLoad_Admin {
             $new_settings['debug_logging_enabled'] = isset( $_POST['debug_logging_enabled'] );
         }
         if ( isset( $_POST['access_token'] ) ) {
-            $new_settings['access_token'] = sanitize_text_field( wp_unslash( $_POST['access_token'] ) );
+            $submitted_token = sanitize_text_field( wp_unslash( $_POST['access_token'] ) );
+            if ( SynthLoad_Settings::is_valid_access_token( $submitted_token ) ) {
+                $new_settings['access_token'] = $submitted_token;
+            } else {
+                $new_settings['access_token'] = $old_settings['access_token'];
+                add_settings_error(
+                    'synthload_settings',
+                    'invalid_access_token',
+                    __( 'The access token must contain between 16 and 128 characters.', 'wp-synthload' ),
+                    'error'
+                );
+            }
         }
         if ( isset( $_POST['read_query_count'] ) ) {
             $new_settings['read_query_count'] = (int) $_POST['read_query_count'];
@@ -182,6 +193,18 @@ class SynthLoad_Admin {
             if ( isset( $_POST['calc_flash_spike_percent'] ) ) {
                 $new_settings['calc_flash_spike_percent'] = (int) $_POST['calc_flash_spike_percent'];
             }
+        }
+
+        // Never enable the public workload endpoint without an access token.
+        $prospective_settings = array_merge( $old_settings, $new_settings );
+        if ( ! empty( $prospective_settings['endpoint_enabled'] ) && empty( $prospective_settings['access_token'] ) ) {
+            $new_settings['endpoint_enabled'] = false;
+            add_settings_error(
+                'synthload_settings',
+                'access_token_required',
+                __( 'The endpoint remains disabled. Configure an access token before enabling it.', 'wp-synthload' ),
+                'error'
+            );
         }
 
         // Update settings (returns false if no changes or error)
@@ -580,11 +603,6 @@ class SynthLoad_Admin {
                     params.set('cpu_iterations', $('#synthload_cpu_iterations').val());
                     params.set('bypass_object_cache', $('#synthload_bypass_object_cache').is(':checked') ? '1' : '0');
 
-                    // Add access token if configured
-                    if (accessToken) {
-                        params.set('token', accessToken);
-                    }
-
                     var testUrl = endpointUrl + '?' + params.toString();
 
                     // Start timing the full request round-trip
@@ -594,6 +612,9 @@ class SynthLoad_Admin {
                         url: testUrl,
                         method: 'GET',
                         dataType: 'json',
+                        headers: {
+                            'X-SynthLoad-Token': accessToken
+                        },
                         success: function(response) {
                             var endTime = performance.now();
                             var roundTripMs = Math.round(endTime - startTime);

@@ -30,7 +30,7 @@ class SynthLoad_Settings {
     private static array $defaults = array(
         'loaderio_token'             => '',
         'endpoint_slug'              => 'synthload',
-        'endpoint_enabled'           => true,
+        'endpoint_enabled'           => false,
         'access_token'               => '',
         'read_query_count'           => 100,
         'write_op_count'             => 5,
@@ -52,8 +52,8 @@ class SynthLoad_Settings {
      */
     private static array $hard_limits = array(
         'max_cpu_iterations'   => 10000, // In thousands (10000 = 10 million iterations)
-        'max_read_query_count' => 10000,
-        'max_write_op_count'   => 1000,
+        'max_read_query_count' => 2000,
+        'max_write_op_count'   => 200,
         'max_rows_to_keep'     => 100000,
     );
 
@@ -180,7 +180,8 @@ class SynthLoad_Settings {
 
         // Access token - sanitize text
         if ( isset( $input['access_token'] ) ) {
-            $sanitized['access_token'] = sanitize_text_field( $input['access_token'] );
+            $token = sanitize_text_field( $input['access_token'] );
+            $sanitized['access_token'] = self::is_valid_access_token( $token ) ? $token : '';
         }
 
         // Read query count - integer, clamped to limits
@@ -288,6 +289,21 @@ class SynthLoad_Settings {
 
         // Allow "loaderio-xxxxx" or just "xxxxx" format
         return (bool) preg_match( '/^[a-zA-Z0-9\-]+$/', $token );
+    }
+
+    /**
+     * Validate a workload access token.
+     *
+     * Empty tokens are valid while the endpoint is disabled. Non-empty tokens
+     * must provide enough entropy for use as a shared secret.
+     *
+     * @param string $token The access token to validate.
+     * @return bool True if valid, false otherwise.
+     */
+    public static function is_valid_access_token( string $token ): bool {
+        $length = strlen( $token );
+
+        return 0 === $length || ( $length >= 16 && $length <= 128 );
     }
 
     /**

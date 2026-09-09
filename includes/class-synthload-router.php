@@ -102,18 +102,16 @@ class SynthLoad_Router {
             return;
         }
 
-        // Handle HEAD requests - quick response for uptime checks
-        if ( isset( $_SERVER['REQUEST_METHOD'] ) && 'HEAD' === $_SERVER['REQUEST_METHOD'] ) {
-            $this->send_response( 200, '' );
+        // The workload endpoint is never available without header authentication.
+        if ( ! $this->validate_access() ) {
+            $this->send_response( 403, 'Forbidden' );
             return;
         }
 
-        // Validate access if token is required
-        if ( ! empty( $settings['access_token'] ) ) {
-            if ( ! $this->validate_access() ) {
-                $this->send_response( 403, 'Forbidden' );
-                return;
-            }
+        // Authenticated HEAD requests return without executing workload.
+        if ( isset( $_SERVER['REQUEST_METHOD'] ) && 'HEAD' === $_SERVER['REQUEST_METHOD'] ) {
+            $this->send_response( 200, '' );
+            return;
         }
 
         // Dispatch workload
@@ -163,9 +161,9 @@ class SynthLoad_Router {
         $settings     = SynthLoad_Settings::get_all();
         $access_token = $settings['access_token'];
 
-        // If no token required, allow access
-        if ( empty( $access_token ) ) {
-            return true;
+        // Never allow an enabled endpoint without a configured token.
+        if ( empty( $access_token ) || ! SynthLoad_Settings::is_valid_access_token( $access_token ) ) {
+            return false;
         }
 
         // Check header first (preferred)
@@ -175,14 +173,6 @@ class SynthLoad_Router {
         }
 
         if ( ! empty( $header_token ) && hash_equals( $access_token, $header_token ) ) {
-            return true;
-        }
-
-        // Check query parameter
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-        $query_token = isset( $_GET['token'] ) ? sanitize_text_field( wp_unslash( $_GET['token'] ) ) : '';
-
-        if ( ! empty( $query_token ) && hash_equals( $access_token, $query_token ) ) {
             return true;
         }
 
@@ -376,10 +366,6 @@ class SynthLoad_Router {
         // Bypass LiteSpeed cache
         header( 'X-LiteSpeed-Cache-Control: no-cache' );
 
-        // Informational headers
-        if ( defined( 'SYNTHLOAD_VERSION' ) ) {
-            header( 'X-SynthLoad-Version: ' . SYNTHLOAD_VERSION );
-        }
         header( 'X-Robots-Tag: noindex, nofollow' );
 
         // Security headers
@@ -406,9 +392,6 @@ class SynthLoad_Router {
         // Bypass LiteSpeed cache
         header( 'X-LiteSpeed-Cache-Control: no-cache' );
 
-        if ( defined( 'SYNTHLOAD_VERSION' ) ) {
-            header( 'X-SynthLoad-Version: ' . SYNTHLOAD_VERSION );
-        }
         header( 'X-Robots-Tag: noindex, nofollow' );
         header( 'X-Content-Type-Options: nosniff' );
 

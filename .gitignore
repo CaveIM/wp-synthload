@@ -1,7 +1,5 @@
-
 # Composer
 /vendor/
-composer.lock
 
 # IDE and editors
 .idea/

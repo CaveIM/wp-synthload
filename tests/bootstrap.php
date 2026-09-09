@@ -5,8 +5,10 @@
  * @package WP_SynthLoad
  */
 
-// Define test constant
-define( 'SYNTHLOAD_TESTING', true );
+// Define test constant when the PHPUnit configuration has not already set it.
+if ( ! defined( 'SYNTHLOAD_TESTING' ) ) {
+	define( 'SYNTHLOAD_TESTING', true );
+}
 
 // Load Composer autoloader if present
 $composer_autoload = dirname( __DIR__ ) . '/vendor/autoload.php';

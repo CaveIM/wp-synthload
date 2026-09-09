@@ -610,13 +610,17 @@ $current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'workload'
                             <label for="synthload_access_token"><?php esc_html_e( 'Access Token', 'wp-synthload' ); ?></label>
                         </th>
                         <td>
-                            <input type="text"
+                            <input type="password"
                                    id="synthload_access_token"
                                    name="access_token"
                                    value="<?php echo esc_attr( $settings['access_token'] ); ?>"
-                                   class="regular-text" />
+                                   class="regular-text"
+                                   minlength="16"
+                                   maxlength="128"
+                                   autocomplete="new-password"
+                                   spellcheck="false" />
                             <p class="description">
-                                <?php esc_html_e( 'Optional. If set, requests must include ?token=xxx or X-SynthLoad-Token header.', 'wp-synthload' ); ?>
+                                <?php esc_html_e( 'Required before enabling the endpoint. Use 16–128 characters and send it only in the X-SynthLoad-Token request header.', 'wp-synthload' ); ?>
                             </p>
                         </td>
                     </tr>

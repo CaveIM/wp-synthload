@@ -1,311 +1,228 @@
 # WP Synthetic Load
 
-A WordPress plugin that provides a synthetic load endpoint for load testing with Loader.io and similar services.
+WP Synthetic Load is a WordPress plugin that creates an authenticated endpoint for controlled load testing with Loader.io and similar services. It performs configurable database reads, isolated write cycles, and CPU work so you can measure a WordPress environment under repeatable load.
 
-## Overview
+The plugin does not launch tests or collect analytics. Your external load-testing service sends requests and measures the results.
 
-WP Synthetic Load creates a dedicated endpoint that generates configurable database and CPU workload, enabling you to:
+## Safety first
 
-- Verify your hosting can handle expected traffic
-- Test autoscaling triggers
-- Benchmark database performance
-- Validate object caching effectiveness
-- Identify bottlenecks before they impact real users
+- The workload endpoint is disabled by default.
+- Every workload request requires an `X-SynthLoad-Token` header.
+- Authentication through URL query parameters is not supported because URLs are commonly retained in logs, browser history, analytics, and proxies.
+- Writes are limited to the plugin-owned `{$wpdb->prefix}synthload_events` table.
+- Hard caps apply even when a request supplies workload overrides.
+- JSON responses contain workload metrics only; they do not expose WordPress or PHP versions, database table names, option names, or WordPress object IDs.
 
-The plugin writes **only to its own isolated database table** - your WordPress content (posts, pages, users, settings) is never modified.
+Only load-test systems you own or are explicitly authorized to test. Prefer a staging environment. On production systems, enable the endpoint only for the test window and disable it afterward.
 
 ## Requirements
 
-- WordPress 6.4+
-- PHP 8.1+
+- WordPress 6.4 or newer
+- PHP 8.1 or newer
+- HTTPS for authenticated requests
 
 ## Installation
 
-1. Upload the `wp-synthload` folder to `/wp-content/plugins/`
-2. Activate the plugin through the WordPress admin
-3. Configure settings at **Settings → Synthetic Load**
+1. Upload the `wp-synthload` directory to `wp-content/plugins/`.
+2. Activate **WP Synthetic Load** in WordPress.
+3. Open **Settings → Synthetic Load → Settings**.
+4. Configure a strong, unique access token. A randomly generated value of at least 32 characters is recommended.
+5. Enable the endpoint and save.
+6. Configure workload parameters under the **Workload** tab.
 
-## Endpoints
+The default endpoint URL is:
 
-### Synthetic Load Endpoint
+```text
+https://your-site.example/synthload/
+```
 
-**Default URL:** `https://yoursite.com/synthload/`
+## Authentication
 
-Returns `OK` with a 200 status code after executing the configured workload.
+Send the configured token in the `X-SynthLoad-Token` request header:
 
-**JSON Format:** `https://yoursite.com/synthload/?format=json`
+```bash
+export SYNTHLOAD_TOKEN='replace-with-your-token'
+curl \
+  --header "X-SynthLoad-Token: ${SYNTHLOAD_TOKEN}" \
+  https://your-site.example/synthload/
+```
 
-Returns detailed execution data including:
-- Request ID and timestamp
-- Execution duration vs target
-- Number of database reads/writes performed
-- Detailed operation log with timing
-- Server info (PHP/WP versions)
+A successful plain-text request returns:
 
-**Example JSON Response:**
+```text
+OK
+```
+
+Requests with a missing or incorrect token return `403 Forbidden`. A valid token in `?token=...` is intentionally rejected.
+
+## Running a Loader.io test
+
+### Verify the target host
+
+1. Add your hostname in Loader.io.
+2. Copy its verification token into **Settings → Synthetic Load → Settings → Loader.io Verification**.
+3. Save the settings. The plugin creates Loader.io's verification file in the WordPress web root.
+4. Complete host verification in Loader.io.
+
+The verification file is public by design, but it cannot run a workload.
+
+### Configure the test request
+
+1. In Loader.io, create or edit a test for `https://your-site.example/synthload/`.
+2. Open the request's headers/options section.
+3. Add this HTTP header:
+
+   ```text
+   X-SynthLoad-Token: replace-with-your-token
+   ```
+
+4. Choose the client count, test type, duration, timeout, and error threshold.
+5. Start with a small test and increase load gradually while monitoring the application, database, cache, and hosting controls.
+
+Loader.io supports custom HTTP headers in both its web interface and API. When creating tests through its API, place the plugin token in the request configuration's `headers` object:
+
+```json
+{
+  "test_type": "maintain-load",
+  "urls": [
+    {
+      "url": "https://your-site.example/synthload/",
+      "request_type": "GET",
+      "headers": {
+        "X-SynthLoad-Token": "replace-with-your-token"
+      }
+    }
+  ],
+  "duration": 60,
+  "initial": 1,
+  "total": 10,
+  "name": "WordPress synthetic load"
+}
+```
+
+The Loader.io API itself uses its own `loaderio-auth` credential. That credential is separate from the `X-SynthLoad-Token` sent to WordPress.
+
+## JSON results
+
+Add `format=json` when you need machine-readable workload metrics. Authentication remains in the header:
+
+```bash
+export SYNTHLOAD_TOKEN='replace-with-your-token'
+curl \
+  --header "X-SynthLoad-Token: ${SYNTHLOAD_TOKEN}" \
+  'https://your-site.example/synthload/?format=json'
+```
+
+Example response:
+
 ```json
 {
   "status": "ok",
-  "timestamp": "2024-01-15T10:30:00+00:00",
+  "timestamp": "2026-01-15T10:30:00+00:00",
   "request_id": "550e8400-e29b-41d4-a716-446655440000",
   "execution": {
-    "duration_ms": 3042,
-    "target_ms": 3000,
+    "duration_ms": 142.7,
     "db_reads": 100,
-    "db_writes": 5,
+    "db_writes": 15,
+    "cpu_iterations": 100000,
     "cache_hit": false
-  },
-  "operations": [
-    {
-      "type": "read",
-      "action": "get_option",
-      "time_ms": 2,
-      "details": { "option": "blogname", "found": true }
-    },
-    {
-      "type": "write",
-      "action": "insert",
-      "time_ms": 45,
-      "details": { "table": "wp_synthload_events", "insert_id": 1234 }
-    }
-  ],
-  "server": {
-    "php_version": "8.2.0",
-    "wp_version": "6.4.2"
   }
 }
 ```
 
-### Loader.io Verification Endpoint
+`db_writes` reports individual database operations. Each configured write cycle performs an insert, update, and delete, so five cycles report 15 operations and leave no new workload row behind.
 
-**URL:** `https://yoursite.com/loaderio-{token}.txt`
+## Per-request workload overrides
 
-Returns the verification token for Loader.io domain verification. Configure your token in the plugin settings.
+An authenticated request may override saved workload values with query parameters. The access token must still be sent in the header.
 
-## Settings Reference
+| Parameter | Meaning | Hard maximum |
+|---|---|---:|
+| `read_query_count` | Database read queries | 2,000 |
+| `write_op_count` | Complete insert/update/delete cycles | 200 |
+| `cpu_iterations` | Thousands of SHA-256 operations | 10,000 (10 million operations) |
+| `bypass_object_cache` | Accepts `1`, `true`, or `yes` | — |
 
-### Loader.io Verification
+Example:
 
-| Setting | Description |
-|---------|-------------|
-| **Verification Token** | Your Loader.io verification token (alphanumeric only). Leave empty to disable. |
-
-### Endpoint Configuration
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| **Endpoint Slug** | `synthload` | URL path for the load endpoint. Alphanumeric and hyphens only. |
-| **Enable Endpoint** | Yes | Toggle the synthetic load endpoint on/off. |
-| **Access Token** | (empty) | Optional security token. If set, requests must include `?token=xxx` or `X-SynthLoad-Token` header. |
-
-### Workload Profile
-
-| Profile | Reads | Writes | Duration | Jitter | Use Case |
-|---------|-------|--------|----------|--------|----------|
-| **General WP** | 100 | 5 | 3000ms | 750ms | Standard WordPress site |
-| **Membership** | 200 | 15 | 4000ms | 1000ms | Sites with user sessions, member content |
-| **E-commerce** | 150 | 25 | 5000ms | 1000ms | WooCommerce, cart operations |
-
-Select a profile to load its defaults, then customize as needed.
-
-### Workload Parameters
-
-| Setting | Default | Range | Description |
-|---------|---------|-------|-------------|
-| **Database Reads** | 100 | 0-2000 | Number of read queries per request |
-| **Database Writes** | 5 | 0-200 | Number of write operations per request |
-| **Target Duration** | 3000ms | 100-15000ms | Target execution time |
-| **Duration Jitter** | 750ms | 0-5000ms | Random variation in duration |
-| **Randomize Workload** | Yes | - | Add variance to read/write counts |
-
-### Cache Behavior
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| **Use cache-friendly operations** | Yes | Use WordPress functions that benefit from object caching |
-| **Bypass object cache** | No | Force queries to hit the database directly |
-
-**Cache Behavior Explained:**
-
-| Scenario | use_object_cache | bypass_object_cache | Effect |
-|----------|-----------------|---------------------|--------|
-| Normal test | ✓ | ✗ | Tests realistic cached performance |
-| Stress test | ✗ | ✓ | Tests raw database capacity |
-| Cache validation | ✓ | ✗ | Verify caching is working |
-| Worst-case test | ✗ | ✓ | Simulate complete cache miss |
-
-When **bypass_object_cache** is enabled:
-- Post queries use `cache_results => false`
-- Meta and term caches are disabled
-- User queries fall back to option reads
-
-### Debug Settings
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| **Enable debug logging** | No | Log workload events to PHP error log |
-
-## What the Plugin Reads and Writes
-
-### Read Operations (Non-destructive)
-
-The plugin performs read-only queries against:
-
-| Source | Method | Data Read |
-|--------|--------|-----------|
-| WordPress Options | `get_option()` | blogname, siteurl, admin_email, etc. |
-| Posts Table | `get_posts()` / Direct SQL | Random published posts (ID, title) |
-| Users Table | `get_users()` | User IDs only |
-| Options Table | Direct SQL | Autoload options list |
-| Plugin Events Table | Direct SQL | Random synthetic events |
-
-**No WordPress core data is ever modified.**
-
-### Write Operations (Plugin Table Only)
-
-All writes go to the plugin's dedicated `wp_synthload_events` table:
-
-| Operation | Percentage | Description |
-|-----------|------------|-------------|
-| INSERT | 60% | Creates new synthetic event rows |
-| UPDATE | 30% | Updates payload of existing events |
-| DELETE | 10% | Removes old events (only when >80% of max capacity) |
-
-### Database Table Schema
-
-```sql
-CREATE TABLE wp_synthload_events (
-  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  request_id char(36) NOT NULL,
-  created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  payload longtext,
-  rand_key bigint(20) unsigned NOT NULL,
-  PRIMARY KEY (id),
-  KEY idx_created_at (created_at),
-  KEY idx_rand_key (rand_key)
-);
+```bash
+export SYNTHLOAD_TOKEN='replace-with-your-token'
+curl \
+  --header "X-SynthLoad-Token: ${SYNTHLOAD_TOKEN}" \
+  'https://your-site.example/synthload/?read_query_count=250&write_op_count=10&cpu_iterations=500&format=json'
 ```
 
-## Hard Safety Limits
+These overrides are useful for separate Loader.io scenarios without repeatedly changing WordPress settings. Treat the access token as permission to execute workloads up to the hard caps.
 
-These limits are enforced in code and cannot be exceeded regardless of settings:
+## Workload behavior
 
-| Limit | Value | Purpose |
-|-------|-------|---------|
-| Max Total Duration | 15,000ms | Prevent request timeouts |
-| Max Read Queries | 2,000 | Prevent database overload |
-| Max Write Operations | 200 | Limit table growth per request |
-| Max Rows to Keep | 100,000 | Cap table size, triggers cleanup |
+### Reads
 
-## Access Control
+The plugin performs read-only operations against WordPress options, published posts, user IDs, and its own events table. Read values and identifiers are not returned to the requester.
 
-### Token Authentication
+### Writes
 
-When an access token is configured, requests must authenticate via:
+Every write cycle performs `INSERT → UPDATE → DELETE` against the plugin's own table. The plugin never writes to WordPress core content, user, or settings tables as part of the workload.
 
-1. **Query Parameter:** `?token=your_secret_token`
-2. **HTTP Header:** `X-SynthLoad-Token: your_secret_token`
+### CPU work
 
-Unauthenticated requests receive a `403 Forbidden` response.
+CPU work performs a fixed number of SHA-256 operations. The setting is expressed in thousands: `100` means 100,000 hash operations.
 
-### HEAD Requests
+### Cache bypass
 
-HEAD requests return `200 OK` immediately without executing workload, useful for uptime monitoring.
+Cache bypass disables object-query caching where possible and sends headers intended to prevent page, proxy, and CDN caching for the workload response.
 
-## Using with Loader.io
+## Operational recommendations
 
-1. **Get your verification token** from Loader.io when adding a new target host
-2. **Enter the token** in Settings → Synthetic Load → Loader.io Verification
-3. **Verify your domain** in Loader.io (it will check `/loaderio-{token}.txt`)
-4. **Create a test** targeting your synthload endpoint:
-   - URL: `https://yoursite.com/synthload/`
-   - Method: GET
-   - Add token header if configured: `X-SynthLoad-Token: your_token`
+- Use a unique token for each site and rotate it if it is exposed.
+- Never place the token in a URL.
+- Restrict the endpoint at the firewall or WAF when practical.
+- Account for Loader.io source-address behavior before allow-listing traffic.
+- Begin with a low connection count and short duration.
+- Watch database connections, CPU, memory, PHP workers, cache health, and error rates.
+- Stop the test if the site affects other tenants or services.
+- Disable the endpoint after testing.
 
-### Recommended Test Progression
+## Activation and removal
 
-1. **Baseline:** 10 clients, 1 minute - verify endpoint works
-2. **Light Load:** 50 clients, 2 minutes - check response consistency
-3. **Medium Load:** 200 clients, 5 minutes - monitor for degradation
-4. **Stress Test:** 500+ clients, 5 minutes - find breaking point
-
-## Activation & Deactivation
-
-### On Activation
-
-- Creates `wp_synthload_events` table
-- Sets default options
-- Seeds 500 initial events for consistent reads
-- Registers URL rewrite rules
-
-### On Deactivation
-
-- Removes rewrite rules
-- **Preserves** options and database table (for reactivation)
-
-### On Uninstall (Delete Plugin)
-
-- Removes all options
-- Drops `wp_synthload_events` table
-- Cleans up transients
-
-## Troubleshooting
-
-### Endpoint Returns 404
-
-1. Go to Settings → Permalinks and click "Save Changes" to flush rewrite rules
-2. Verify the endpoint slug doesn't conflict with existing pages/posts
-3. Check that pretty permalinks are enabled (not "Plain")
-
-### Endpoint Returns 403
-
-- Verify your access token matches (query param or header)
-- Check for typos in the token
-
-### Slow Response Times
-
-- Reduce read/write counts
-- Enable object caching (Redis/Memcached)
-- Check database server performance
-- Review `?format=json` output for slow operations
-
-### Table Growing Too Large
-
-- Table auto-cleans when >80% of max capacity
-- Manually truncate via phpMyAdmin if needed
-- Consider lowering write_op_count
+Activation creates the plugin table, seeds synthetic rows, stores safe defaults, and registers rewrite rules. Deactivation disables the rewrite rules while preserving settings and the table. Deleting the plugin removes its settings, table, transients, and Loader.io verification file.
 
 ## Development
 
-### Running Tests
+Install development dependencies and run the WordPress PHPUnit suite:
 
 ```bash
-cd wp-content/plugins/wp-synthload
 composer install
-./vendor/bin/phpunit
+composer test
 ```
 
-### Test Files
+The test bootstrap expects `WP_TESTS_DIR` to point to a configured WordPress test library. If it is unset, it looks in the system temporary directory under `wordpress-tests-lib`.
 
-- `tests/test-settings.php` - Settings validation
-- `tests/test-db.php` - Database operations
-- `tests/test-router.php` - URL routing
-- `tests/test-access-control.php` - Token authentication
-- `tests/test-workload.php` - Workload execution
-- `tests/test-admin.php` - Admin interface
-- `tests/test-activation.php` - Activation/deactivation
-- `tests/test-integration.php` - End-to-end tests
+Validate PHP syntax without a WordPress test environment:
+
+```bash
+find . -name '*.php' -not -path './vendor/*' -exec php -l {} \;
+```
+
+## Version 2.0 migration
+
+Version 2.0 makes the workload endpoint secure by default:
+
+- New installations start with the endpoint disabled.
+- Existing enabled endpoints without a token return `403` until a token is configured.
+- Existing access tokens shorter than 16 characters must be replaced.
+- Query-string authentication has been removed. Update all load-test configurations to send `X-SynthLoad-Token`.
+- JSON results no longer include server versions or detailed database-operation metadata.
+- Hard caps are 2,000 reads, 200 write cycles, and 10 million CPU iterations per request.
 
 ## License
 
-GPL v2 or later
+Copyright MightyBox.
 
-## Changelog
+WP Synthetic Load is licensed under the GNU General Public License v2.0 or later. See `LICENSE`.
 
-### 1.0.0
-- Initial release
-- Synthetic load endpoint with configurable workload
-- Loader.io verification support
-- Admin settings page
-- Access token authentication
-- Detailed JSON response format with operation logging
+## Support
+
+Contact [support@mightybox.io](mailto:support@mightybox.io).
+
+Please report security vulnerabilities privately as described in `SECURITY.md` rather than opening a public issue.
