@@ -70,16 +70,17 @@ class Test_SynthLoad_Router extends WP_UnitTestCase {
     /**
      * Test that register_rewrites uses custom slug.
      */
-    public function test_register_rewrites_uses_custom_slug(): void {
-        update_option( SynthLoad_Settings::OPTION_NAME, array( 'endpoint_slug' => 'my-custom-load' ) );
+	public function test_register_rewrites_uses_custom_slug(): void {
+		update_option( SynthLoad_Settings::OPTION_NAME, array( 'endpoint_slug' => 'my-custom-load' ) );
 
-        SynthLoad_Router::register_rewrites();
-        flush_rewrite_rules();
+		global $wp_rewrite;
+		$wp_rewrite->extra_rules_top = array();
+		SynthLoad_Router::register_rewrites();
+		flush_rewrite_rules();
 
-        global $wp_rewrite;
-        $rules = $wp_rewrite->wp_rewrite_rules();
+		$rules = $wp_rewrite->wp_rewrite_rules();
 
-        $this->assertArrayHasKey( '^my-custom-load/?$', $rules );
+		$this->assertArrayHasKey( '^my\-custom\-load/?$', $rules );
         $this->assertArrayNotHasKey( '^synthload/?$', $rules );
     }
 
@@ -116,14 +117,11 @@ class Test_SynthLoad_Router extends WP_UnitTestCase {
     /**
      * Test that rules_need_flush returns true when rules missing.
      */
-    public function test_rules_need_flush_returns_true_when_rules_missing(): void {
-        // Clear rewrite rules
-        delete_option( 'rewrite_rules' );
+	public function test_rules_need_flush_returns_true_when_rules_missing(): void {
+		global $wp_rewrite;
+		update_option( 'rewrite_rules', array( '^unrelated/?$' => 'index.php' ) );
 
-        global $wp_rewrite;
-        $wp_rewrite->init();
-
-        $this->assertTrue( SynthLoad_Router::rules_need_flush() );
+		$this->assertTrue( SynthLoad_Router::rules_need_flush() );
     }
 
     /**
@@ -156,6 +154,6 @@ class Test_SynthLoad_Router extends WP_UnitTestCase {
         global $wp_rewrite;
         $rules = $wp_rewrite->wp_rewrite_rules();
 
-        $this->assertArrayHasKey( '^load-test-endpoint/?$', $rules );
+		$this->assertArrayHasKey( '^load\-test\-endpoint/?$', $rules );
     }
 }

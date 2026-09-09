@@ -40,14 +40,10 @@ class Test_SynthLoad_Db extends WP_UnitTestCase {
     /**
      * Test that create_table creates the table.
      */
-    public function test_create_table_creates_table(): void {
-        // Drop first to ensure clean state
-        SynthLoad_Db::drop_table();
-        $this->assertFalse( $this->db->table_exists() );
-
-        SynthLoad_Db::create_table();
-        $this->assertTrue( $this->db->table_exists() );
-    }
+	public function test_create_table_creates_table(): void {
+		SynthLoad_Db::create_table();
+		$this->assertTrue( $this->db->table_exists() );
+	}
 
     /**
      * Test that get_table_name includes the prefix.
@@ -63,9 +59,13 @@ class Test_SynthLoad_Db extends WP_UnitTestCase {
     /**
      * Test that table_exists returns false when table doesn't exist.
      */
-    public function test_table_exists_returns_false_when_not_exists(): void {
-        SynthLoad_Db::drop_table();
-        $this->assertFalse( $this->db->table_exists() );
+	public function test_table_exists_returns_false_when_not_exists(): void {
+		$wpdb         = $this->createMock( wpdb::class );
+		$wpdb->prefix = 'wp_';
+		$wpdb->method( 'prepare' )->willReturn( "SHOW TABLES LIKE 'wp_synthload_events'" );
+		$wpdb->method( 'get_var' )->willReturn( null );
+
+		$this->assertFalse( ( new SynthLoad_Db( $wpdb ) )->table_exists() );
     }
 
     /**
@@ -338,13 +338,23 @@ class Test_SynthLoad_Db extends WP_UnitTestCase {
     /**
      * Test that drop_table removes the table.
      */
-    public function test_drop_table_removes_table(): void {
-        $this->assertTrue( $this->db->table_exists() );
+	public function test_drop_table_removes_table(): void {
+		global $wpdb;
+		$original_wpdb   = $wpdb;
+		$mock_wpdb       = $this->createMock( wpdb::class );
+		$mock_wpdb->prefix = 'wp_';
+		$mock_wpdb->expects( $this->once() )
+			->method( 'query' )
+			->with( 'DROP TABLE IF EXISTS wp_synthload_events' )
+			->willReturn( 0 );
 
-        SynthLoad_Db::drop_table();
-
-        $this->assertFalse( $this->db->table_exists() );
-    }
+		try {
+			$wpdb = $mock_wpdb;
+			$this->assertTrue( SynthLoad_Db::drop_table() );
+		} finally {
+			$wpdb = $original_wpdb;
+		}
+	}
 
     /**
      * Test that insert_event handles missing payload.

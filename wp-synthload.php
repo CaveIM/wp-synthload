@@ -3,7 +3,7 @@
  * Plugin Name: WP Synthetic Load
  * Plugin URI: https://github.com/mightybox-io/wp-synthload
  * Description: Provides a synthetic load endpoint for Loader.io testing and load simulation
- * Version: 2.0.0
+ * Version: 2.0.1
  * Requires at least: 6.4
  * Requires PHP: 8.1
  * Author: MightyBox
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'SYNTHLOAD_VERSION', '2.0.0' );
+define( 'SYNTHLOAD_VERSION', '2.0.1' );
 define( 'SYNTHLOAD_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SYNTHLOAD_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'SYNTHLOAD_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );

@@ -451,7 +451,8 @@ class SynthLoad_Workload {
         for ( $i = 0; $i < $count; $i++ ) {
             // 1. INSERT
             $payload          = wp_json_encode( $this->generate_random_payload( $i ) );
-            $event_request_id = $this->request_id . '-' . $i . '-' . wp_generate_password( 8, false );
+			// Keep request IDs within the table's CHAR(36) column.
+			$event_request_id = wp_generate_uuid4();
 
             $insert_id = $this->db->insert_event( array(
                 'request_id' => $event_request_id,

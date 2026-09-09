@@ -86,6 +86,6 @@ class Test_SynthLoad_Integration extends WP_UnitTestCase {
 		flush_rewrite_rules();
 
 		global $wp_rewrite;
-		$this->assertArrayHasKey( '^new-slug/?$', $wp_rewrite->wp_rewrite_rules() );
+		$this->assertArrayHasKey( '^new\-slug/?$', $wp_rewrite->wp_rewrite_rules() );
 	}
 }

@@ -45,5 +45,15 @@ function _manually_load_plugin(): void {
 
 tests_add_filter( 'muplugins_loaded', '_manually_load_plugin' );
 
+// Prevent the normal upgrade check from creating a permanent plugin table
+// before WP_UnitTestCase can substitute temporary tables for test isolation.
+tests_add_filter(
+	'plugins_loaded',
+	static function (): void {
+		update_option( 'synthload_schema_version', SynthLoad_Activator::SCHEMA_VERSION );
+	},
+	9
+);
+
 // Start up the WP testing environment
 require $_tests_dir . '/includes/bootstrap.php';
